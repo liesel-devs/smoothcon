@@ -46,7 +46,7 @@ y = x + rng.normal(loc=0.0, scale=1.0, size=n)
 mcycle = {"accel": y, "times": x}  # imitating the MASS:mcycle dataset
 ```
 
-Initialize the smooth. What's special here is that the `spec` argument of the
+Now we initialize the smooth. What's special here is that the `spec` argument of the
 `SmoothCon` class can simply be a string containing the R code that you would usually
 use to specify a smooth in `mgcv`. Any smooth specification accepted by `mgcv::SmoothCon`
 is permitted.
