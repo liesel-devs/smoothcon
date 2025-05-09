@@ -10,7 +10,7 @@ k = 1
 x = rng.uniform(-2.0, 2.0, size=(n, k))
 z = rng.binomial(n=1, p=0.5, size=n)
 y = x.sum(axis=1) + rng.normal(loc=0.0, scale=1.0, size=n)
-xdict = {"x0": x[:,0]}
+xdict = {"x0": x[:, 0]}
 data = pd.DataFrame({"y": y, "z": z} | xdict)
 
 
