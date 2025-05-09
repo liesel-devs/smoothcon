@@ -5,7 +5,61 @@
 [![pytest](https://github.com/liesel-devs/smoothcon/actions/workflows/pytest.yml/badge.svg)](https://github.com/liesel-devs/smoothcon/actions/workflows/pytest.yml)
 [![pytest-cov](tests/coverage.svg)](https://github.com/liesel-devs/smoothcon/actions/workflows/pytest.yml)
 
-This is a small wrapper that pulls basis and penalty matrices from mgcv and converts them to numpy arrays.
+This is a small wrapper that pulls basis and penalty matrices from the R packge [mgcv](https://cran.r-project.org/web/packages/mgcv/index.html) and converts them to numpy arrays.
+
+## Installation
+
+
+
+## Usage
+
+We illustrate usage with ranom data:
+
+```python
+# import packages
+import numpy as np
+from smoothcon import SmoothCon
+
+
+# generate some random data
+rng = np.random.default_rng(seed=1)
+n = 100
+x = rng.uniform(-2.0, 2.0, size=n)
+y = x + rng.normal(loc=0.0, scale=1.0, size=n)
+mcycle = {"accel": y, "times": x}  # imitating the MASS:mcycle dataset
+```
+
+Initialize the smooth:
+
+```python
+# construct smooth
+smooth = SmoothCon(
+    spec="s(times, bs='ps', k=20, m=c(3,2))", # mgcv smooth specification
+    data=mcycle, # dictionary or pandas dataframe
+    knots=None, # knots; if None (default), mgcv will create the knots
+    absorb_cons=True, # If True, constraints (e.g. sum-to-zero) will be absorbed into the basis matrix
+    diagonal_penalty=True, # If True, the penalty will be diagonalized
+    pass_to_r=None, # dictionary of data that should be made available to the R environment
+)
+```
+
+Access smooth information:
+
+```python
+# shortcuts to smooth information
+smooth.basis # if there is only one basis in the smooth
+smooth.penalty # if there is only one penalty in the smooth
+smooth.knots
+
+# full smooth information
+smooth.all_bases() # list of all bases in the smooth
+smooth.all_penalties() # list of all penalties in the smooth
+
+# prediction
+newdata = {"times": rng.uniform(-1.0, 2.0, size=5)}
+smooth.predict(data=newdata) # compute single basis at new covariate values
+smooth.predict_all_bases(data=newdata) # compute all bases at new covariate values
+```
 
 ## License
 
