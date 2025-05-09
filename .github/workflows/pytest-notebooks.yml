@@ -47,4 +47,4 @@ jobs:
 
 
       - name: Run pytest
-        run: uv run pytest tests/notebooks --nbval-lax --nbval-current-env
+        run: uv run pytest notebooks --nbval-lax --nbval-current-env

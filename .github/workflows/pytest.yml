@@ -47,7 +47,7 @@ jobs:
 
 
       - name: Run pytest
-        run: uv run pytest --cov=liesel_gam
+        run: uv run pytest --cov=smoothcon
 
       - name: Create coverage badge
         uses: tj-actions/coverage-badge-py@v2
