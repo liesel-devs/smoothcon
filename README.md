@@ -7,6 +7,12 @@
 
 This is a small wrapper that pulls basis and penalty matrices from the R packge [mgcv](https://cran.r-project.org/web/packages/mgcv/index.html) and converts them to numpy arrays.
 
+## Disclaimer
+
+This package is experimental and under active development. The API cannot be considered
+stable, and testing has not been extensive as of now. Please check and verify! This
+package comes with no warranty or guarantees.
+
 ## Installation
 
 
@@ -29,7 +35,10 @@ y = x + rng.normal(loc=0.0, scale=1.0, size=n)
 mcycle = {"accel": y, "times": x}  # imitating the MASS:mcycle dataset
 ```
 
-Initialize the smooth:
+Initialize the smooth. What's special here is that the `spec` argument of the
+`SmoothCon` class can simply be a string containing the R code that you would usually
+use to specify a smooth in `mgcv`. Any smooth specification accepted by `mgcv::SmoothCon`
+is permitted.
 
 ```python
 # construct smooth

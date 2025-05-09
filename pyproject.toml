@@ -1,6 +1,6 @@
 [project]
 name = "smoothcon"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Get basis and penalty matrices from mgcv and convert them to numpy arrays"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -62,3 +62,6 @@ dev = [
     "pytest-cov>=6.1.1",
     "ruff>=0.11.8",
 ]
+
+[tool.hatch.version]
+path = "smoothcon/__about__.py"
