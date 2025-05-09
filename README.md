@@ -30,7 +30,7 @@ $ pip install git+https://github.com/liesel-devs/smoothcon.git
 
 ## Usage
 
-We illustrate usage with ranom data:
+We illustrate usage with random data:
 
 ```python
 # import packages
