@@ -24,8 +24,8 @@ In any case, this package comes with no warranty or guarantees.
 
 You can install the development version from GitHub via pip:
 
-```
-$ pip install git+https://github.com/liesel-devs/smoothcon.git
+```bash
+pip install git+https://github.com/liesel-devs/smoothcon.git
 ```
 
 ## Usage
