@@ -12,9 +12,13 @@ ecosystem, it has no dependence on Liesel and can be used independently.
 
 ## Disclaimer
 
-This package is experimental and under active development. The API cannot be considered
-stable, and testing has not been extensive as of now. Please check and verify! This
-package comes with no warranty or guarantees.
+This package is experimental and under active development. That means:
+
+- The API cannot be considered stable.
+- Testing has not been extensive as of now. Please check and verify!
+- There is currently no documentation beyond this readme.
+
+In any case, this package comes with no warranty or guarantees.
 
 ## Installation
 
