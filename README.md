@@ -22,7 +22,11 @@ In any case, this package comes with no warranty or guarantees.
 
 ## Installation
 
+You can install the development version from GitHub via pip:
 
+```
+$ pip install git+https://github.com/liesel-devs/smoothcon.git
+```
 
 ## Usage
 
