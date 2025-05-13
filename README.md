@@ -8,10 +8,10 @@
 This is a small wrapper that pulls basis and penalty matrices from the R packge [mgcv](https://cran.r-project.org/web/packages/mgcv/index.html) and converts them to numpy arrays.
 
 Although `smoothcon` is part of the [`liesel`](https://github.com/liesel-devs/liesel)
-ecosystem, it has no dependence on Liesel and can be used independently. 
+ecosystem, it has no dependence on Liesel and can be used independently.
 `smoothcon` works well together with [`liesel_gam`](https://github.com/liesel-devs/liesel_gam)
 for building generalized additive distributional regresion models, see also the
-[notebooks](https://github.com/liesel-devs/smoothcon/tree/main/notebooks) for 
+[notebooks](https://github.com/liesel-devs/smoothcon/tree/main/notebooks) for
 examples.
 
 ## Disclaimer
