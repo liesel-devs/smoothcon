@@ -65,3 +65,6 @@ dev = [
 
 [tool.hatch.version]
 path = "smoothcon/__about__.py"
+
+[tool.hatch.build]
+exclude = ["tests/", "notebooks/"]
