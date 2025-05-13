@@ -7,8 +7,12 @@
 
 This is a small wrapper that pulls basis and penalty matrices from the R packge [mgcv](https://cran.r-project.org/web/packages/mgcv/index.html) and converts them to numpy arrays.
 
-Although `smoothcon` is part of the [Liesel](https://github.com/liesel-devs/liesel)
-ecosystem, it has no dependence on Liesel and can be used independently.
+Although `smoothcon` is part of the [`liesel`](https://github.com/liesel-devs/liesel)
+ecosystem, it has no dependence on Liesel and can be used independently. 
+`smoothcon` works well together with [`liesel_gam`](https://github.com/liesel-devs/liesel_gam)
+for building generalized additive distributional regresion models, see also the
+[notebooks](https://github.com/liesel-devs/smoothcon/tree/main/notebooks) for 
+examples.
 
 ## Disclaimer
 
@@ -80,6 +84,14 @@ newdata = {"times": rng.uniform(-1.0, 2.0, size=5)}
 smooth.predict(data=newdata) # compute single basis at new covariate values
 smooth.predict_all_bases(data=newdata) # compute all bases at new covariate values
 ```
+
+## Usage with `liesel_gam`: Example Notebooks
+
+Advanced usage for building generalized additive distributional regression models with `liesel` and `liesel_gam` is illustrated in the following notebooks.
+
+- [notebooks/test_gam_gibbs.ipynb](https://github.com/liesel-devs/liesel_gam/blob/main/notebooks/test_gam_gibbs.ipynb): A generalized addition location-scale model, using inverse gamma priors an Gibbs kernels for the inverse smoothing parameters.
+- [notebooks/test_gam_manual.ipynb](https://github.com/liesel-devs/liesel_gam/blob/main/notebooks/test_gam_manual.ipynb): A generalized addition location-scale model, using a manually initialized inverse smoothing parameter with a Weibull prior.
+
 
 ## License
 
