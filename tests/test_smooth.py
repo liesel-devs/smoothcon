@@ -47,6 +47,19 @@ class TestSmoothConBasics:
         assert np.allclose(pen[:-1, :-1], np.eye(6))
         assert np.allclose(pen[-1, :], np.zeros(7))
 
+    def test_scale_penalty(self) -> None:
+        smooth1 = SmoothCon(
+            "s(x0, bs='ps', k=8)", data=data, scale_penalty=True, diagonal_penalty=False
+        )
+        smooth2 = SmoothCon(
+            "s(x0, bs='ps', k=8)",
+            data=data,
+            scale_penalty=False,
+            diagonal_penalty=False,
+        )
+
+        assert not np.allclose(smooth1.penalty, smooth2.penalty)
+
     def test_predict(self) -> None:
         smooth = SmoothCon("s(x0, bs='ps', k=8)", data=data)
 

@@ -19,6 +19,7 @@ class SmoothCon:
         knots: ArrayLike | ro.FloatVector | None = None,
         absorb_cons: bool = True,
         diagonal_penalty: bool = True,
+        scale_penalty: bool = True,
         pass_to_r: dict | None = None,
     ) -> None:
         self.pass_to_r = pass_to_r if pass_to_r is not None else {}
@@ -27,6 +28,7 @@ class SmoothCon:
         self.knots_r = knots
         self.absorb_cons = absorb_cons
         self.diagonal_penalty = diagonal_penalty
+        self.scale_penalty = scale_penalty
 
         self.smooth = mgcv.smoothCon(
             self.spec,
@@ -34,6 +36,7 @@ class SmoothCon:
             knots=self._knots_r,
             absorb_cons=absorb_cons,
             diagonal_penalty=diagonal_penalty,
+            scale_penalty=scale_penalty,
         )
 
     @property
