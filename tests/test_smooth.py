@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from smoothcon import SmoothCon
+from smoothcon import SmoothCon, SmoothFactory
 
 rng = np.random.default_rng(seed=1)
 
@@ -75,3 +75,23 @@ class TestSmoothConBasics:
         basis = smooth.predict(df)
         assert basis.shape == (3, 7)
         assert not np.any(np.isnan(basis))
+
+    def test_call(self) -> None:
+        smooth = SmoothCon("s(x0, bs='ps', k=8)", data=data)
+        xnew = rng.uniform(size=(3,))
+        basis = smooth(xnew)
+        assert basis.shape == (3, 7)
+        assert not np.any(np.isnan(basis))
+
+    def test_term(self) -> None:
+        smooth = SmoothCon("s(x0, bs='ps', k=8)", data=data)
+        assert smooth.term == "x0"
+
+
+class TestSmoothFactory:
+    def test_init(self) -> None:
+        sf = SmoothFactory(data)
+        smooth = sf("s(x0, bs='ps', k=8)")
+
+        assert smooth.basis.shape == (n, 7)  # 7, because of sum-to-zero constraint
+        assert not np.any(np.isnan(smooth.basis))
