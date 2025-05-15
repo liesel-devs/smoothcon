@@ -111,6 +111,12 @@ class SmoothCon:
 
         self._knots_r = knots
 
+    def all_terms(self) -> list[str]:
+        terms_list = []
+        for smooth in self.smooth:
+            terms_list.append(smooth.rx2("term")[0])
+        return terms_list
+
     def all_bases(self) -> list[np.ndarray]:
         bases_list = []
         for smooth in self.smooth:
@@ -152,6 +158,16 @@ class SmoothCon:
         smooth_index: int = 0,
     ) -> np.ndarray:
         return self.predict_all_bases(data)[smooth_index]
+
+    @property
+    def term(self) -> str:
+        terms = self.all_terms()
+        if len(terms) > 1:
+            raise ValueError(
+                "Smooth has more than one basis. Consider using .all_terms()."
+            )
+
+        return terms[0]
 
     @property
     def basis(self) -> np.ndarray:
