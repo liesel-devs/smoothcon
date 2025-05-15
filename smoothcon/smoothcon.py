@@ -208,3 +208,47 @@ class SmoothCon:
         data = {self.term: x}
         return self.predict(data)
 
+
+class SmoothFactory:
+    def __init__(
+        self, data: dict[str, ArrayLike] | pd.DataFrame, pass_to_r: dict | None = None
+    ) -> None:
+        with conversion.localconverter(default_converter + pandas2ri.converter):
+            if isinstance(data, dict):
+                data_r = pandas2ri.py2rpy(pd.DataFrame(data))
+            elif isinstance(data, pd.DataFrame):
+                data_r = pandas2ri.py2rpy(data)
+            else:
+                raise TypeError(f"Type {type(data)} not supported.")
+
+        self.data_r = data_r
+        self.pass_to_r = pass_to_r if pass_to_r is not None else {}
+
+    @property
+    def pass_to_r(self) -> dict:
+        return self._pass_to_r
+
+    @pass_to_r.setter
+    def pass_to_r(self, value: dict | None):
+        value = value if value is not None else {}
+        for key, val in value.items():
+            ro.globalenv[key] = val
+        self._pass_to_r = value
+
+    def __call__(
+        self,
+        spec: str | ro.vectors.ListVector,
+        knots: ArrayLike | ro.FloatVector | None = None,
+        absorb_cons: bool = True,
+        diagonal_penalty: bool = True,
+        scale_penalty: bool = True,
+    ) -> SmoothCon:
+        smooth = SmoothCon(
+            spec=spec,
+            knots=knots,
+            data=self.data_r,
+            absorb_cons=absorb_cons,
+            diagonal_penalty=diagonal_penalty,
+            scale_penalty=scale_penalty,
+        )
+        return smooth
