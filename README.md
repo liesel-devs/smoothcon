@@ -17,7 +17,7 @@ examples.
 
 This package is experimental and under active development. That means:
 
-- The API cannot be considered stable.
+- The API cannot be considered stable. If you depend on this package, pin the version.
 - Testing has not been extensive as of now. Please check and verify!
 - There is currently no documentation beyond this readme.
 
@@ -28,7 +28,7 @@ In any case, this package comes with no warranty or guarantees.
 You can install the development version from GitHub via pip:
 
 ```bash
-pip install git+https://github.com/liesel-devs/smoothcon.git
+pip install git+https://github.com/liesel-devs/smoothcon.git@v0.0.2
 ```
 
 ## Usage
