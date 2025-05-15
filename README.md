@@ -79,9 +79,25 @@ smooth.all_bases()      # list of all bases in the smooth
 smooth.all_penalties()  # list of all penalties in the smooth
 
 # prediction
-newdata = {"times": rng.uniform(-1.0, 2.0, size=5)}
+new_x = rng.uniform(-1.0, 2.0, size=5)
+newdata = {"times": new_x}
 smooth.predict(data=newdata)            # compute single basis at new covariate values
 smooth.predict_all_bases(data=newdata)  # compute all bases at new covariate values
+smooth(new_x)                           # alternative syntax for .predict
+```
+
+### SmoothFactory
+
+If you want to initialize several smooths, you might not want to pass the data each time
+to `SmoothCon`. Passing the data each time is not only cumbersome, but also inefficient,
+because it will be converted to an R dataframe each time. So you probably want to
+use the `SmoothFactory` class to initialize your `SmoothCon` objects in most cases:
+
+```python
+from smoothcon import SmoothCon
+
+sf = SmoothFactory(data=df, pass_to_r=None) # pass data to R only once
+smooth_x = sf("s(x, bs='ps', k=20)")        # call to initialize a SmoothCon object
 ```
 
 ## Usage with `liesel_gam`: Example Notebooks
@@ -90,7 +106,6 @@ Advanced usage for building generalized additive distributional regression model
 
 - [notebooks/test_gam_gibbs.ipynb](https://github.com/liesel-devs/liesel_gam/blob/main/notebooks/test_gam_gibbs.ipynb): A generalized addition location-scale model, using inverse gamma priors an Gibbs kernels for the inverse smoothing parameters.
 - [notebooks/test_gam_manual.ipynb](https://github.com/liesel-devs/liesel_gam/blob/main/notebooks/test_gam_manual.ipynb): A generalized addition location-scale model, using a manually initialized inverse smoothing parameter with a Weibull prior.
-
 
 ## License
 
