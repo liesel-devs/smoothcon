@@ -203,3 +203,8 @@ class SmoothCon:
                 ".predict_all_bases() or .predict_single_basis()."
             )
         return np.concatenate(self.predict_all_bases(data), axis=1)
+
+    def __call__(self, x: ArrayLike) -> np.ndarray:
+        data = {self.term: x}
+        return self.predict(data)
+
