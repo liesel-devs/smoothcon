@@ -12,19 +12,13 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Intended Audience :: Science/Research",
 ]
-dependencies = [
-    "numpy>=2.2.5",
-    "pandas>=2.2.3",
-    "rpy2>=3.5.17",
-]
+dependencies = ["numpy>=2.2.5", "pandas>=2.2.3", "rpy2>=3.5.17"]
 
 
 [tool.pytest.ini_options]
 testpaths = "tests"
 # turn warnings into errors and filter out specific warnings
-filterwarnings = [
-    "error",
-]
+filterwarnings = ["error"]
 
 [tool.ruff.lint]
 extend-select = [
@@ -43,7 +37,7 @@ skip-magic-trailing-comma = false
 
 
 [tool.mypy]
-files = ["smoothcon", "tests"]
+files = ["src", "tests"]
 ignore_missing_imports = true
 scripts_are_modules = true
 disable_error_code = "annotation-unchecked"
@@ -64,7 +58,7 @@ dev = [
 ]
 
 [tool.hatch.version]
-path = "smoothcon/__about__.py"
+path = "src/smoothcon/__about__.py"
 
 [tool.hatch.build]
 exclude = ["tests/", "notebooks/"]
