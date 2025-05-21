@@ -2,7 +2,7 @@
 
 [![pre-commit](https://github.com/liesel-devs/smoothcon/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/liesel-devs/smoothcon/actions/workflows/pre-commit.yml)
 [![pytest](https://github.com/liesel-devs/smoothcon/actions/workflows/pytest.yml/badge.svg)](https://github.com/liesel-devs/smoothcon/actions/workflows/pytest.yml)
-[![pytest-cov](tests/coverage.svg)](https://github.com/liesel-devs/smoothcon/actions/workflows/pytest.yml)
+[![pytest-cov](https://raw.githubusercontent.com/liesel-devs/smoothcon/refs/heads/main/tests/coverage.svg)](https://github.com/liesel-devs/smoothcon/actions/workflows/pytest.yml)
 
 This is a small wrapper that pulls basis and penalty matrices from the R packge [mgcv](https://cran.r-project.org/web/packages/mgcv/index.html) and converts them to numpy arrays.
 
