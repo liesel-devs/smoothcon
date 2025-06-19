@@ -12,7 +12,12 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Intended Audience :: Science/Research",
 ]
-dependencies = ["numpy>=2.2.5", "pandas>=2.2.3", "rpy2>=3.5.17"]
+dependencies = [
+    "numpy>=2.2.5",
+    "pandas>=2.2.3",
+    "polars>=1.31.0",
+    "ryp>=0.2.0",
+]
 
 
 [tool.pytest.ini_options]

@@ -1,22 +1,54 @@
 from __future__ import annotations
 
+import typing
+import uuid
+
 import numpy as np
 import pandas as pd
-import rpy2.robjects as ro
-import rpy2.robjects.packages as rpackages
+import polars as pl
 from numpy.typing import ArrayLike
-from rpy2.rinterface import NULL
-from rpy2.robjects import conversion, default_converter, pandas2ri
+from ryp import options, r, to_py, to_r
 
-mgcv = rpackages.importr("mgcv")
+# Configure ryp to use polars format (currently the default)
+options(to_py_format="polars")
+
+# Load mgcv package (suppress startup messages)
+r("suppressPackageStartupMessages(library(mgcv))")
+
+
+def _convert_to_polars(
+    data: pd.DataFrame | pl.DataFrame | dict[str, ArrayLike],
+) -> pl.DataFrame:
+    """Convert input data to a polars DataFrame."""
+    match data:
+        case dict():
+            # convert JAX arrays to numpy arrays for polars compatibility
+            converted_data: dict[str, ArrayLike] = {}
+            for key, value in data.items():
+                # check if it's a JAX array
+                if (
+                    hasattr(value, "__module__")
+                    and value.__module__ is not None
+                    and "jax" in value.__module__
+                ):
+                    converted_data[key] = np.asarray(value)
+                else:
+                    converted_data[key] = value
+            return pl.DataFrame(converted_data)
+        case pd.DataFrame():
+            return pl.from_pandas(data)
+        case pl.DataFrame():
+            return data
+        case _:
+            typing.assert_never(data)
 
 
 class SmoothCon:
     def __init__(
         self,
-        spec: str | ro.vectors.ListVector,
-        data: ro.vectors.DataFrame | pd.DataFrame | dict[str, ArrayLike],
-        knots: ArrayLike | ro.FloatVector | None = None,
+        spec: str,
+        data: pd.DataFrame | pl.DataFrame | dict[str, ArrayLike],
+        knots: ArrayLike | None = None,
         absorb_cons: bool = True,
         diagonal_penalty: bool = True,
         scale_penalty: bool = True,
@@ -24,20 +56,34 @@ class SmoothCon:
     ) -> None:
         self.pass_to_r = pass_to_r if pass_to_r is not None else {}
         self.spec = spec
-        self.data_r = data
-        self.knots_r = knots
+        self.data = _convert_to_polars(data)
+        self.knots = knots
         self.absorb_cons = absorb_cons
         self.diagonal_penalty = diagonal_penalty
         self.scale_penalty = scale_penalty
 
-        self.smooth = mgcv.smoothCon(
-            self.spec,
-            data=self.data_r,
-            knots=self._knots_r,
-            absorb_cons=absorb_cons,
-            diagonal_penalty=diagonal_penalty,
-            scale_penalty=scale_penalty,
+        # generate unique variable names for R environment
+        self._data_var = f"smoothcon_data_{uuid.uuid4().hex[:8]}"
+        self._knots_var = f"smoothcon_knots_{uuid.uuid4().hex[:8]}"
+        self._smooth_var = f"smoothcon_smooth_{uuid.uuid4().hex[:8]}"
+
+        # convert data to R
+        self._convert_data_to_r()
+        self._convert_knots_to_r()
+
+        # create smooth
+        knots_arg = f"knots={self._knots_var}" if knots is not None else "knots=NULL"
+        r_cmd = f"""
+        {self._smooth_var} <- smoothCon(
+            {self.spec},
+            data={self._data_var},
+            {knots_arg},
+            absorb.cons={str(absorb_cons).upper()},
+            diagonal.penalty={str(diagonal_penalty).upper()},
+            scale.penalty={str(scale_penalty).upper()}
         )
+        """
+        r(r_cmd)
 
     @property
     def pass_to_r(self) -> dict:
@@ -47,92 +93,43 @@ class SmoothCon:
     def pass_to_r(self, value: dict | None):
         value = value if value is not None else {}
         for key, val in value.items():
-            ro.globalenv[key] = val
+            to_r(val, key)
         self._pass_to_r = value
 
-    @property
-    def spec(self) -> ro.vectors.ListVector:
-        return self._spec
+    def _convert_data_to_r(self) -> None:
+        """convert data to R dataframe"""
+        # data is already converted to polars in __init__
+        to_r(self.data, self._data_var)
 
-    @spec.setter
-    def spec(self, value: str | ro.vectors.ListVector):
-        if isinstance(value, str):
-            spec = ro.r(value)
-        else:
-            spec = value
-
-        self._spec = spec
-
-    @property
-    def data(self) -> pd.DataFrame:
-        return pandas2ri.rpy2py(self.data_r)
-
-    @property
-    def data_r(self) -> ro.vectors.DataFrame:
-        return self._data
-
-    @data_r.setter
-    def data_r(
-        self, value: ro.vectors.DataFrame | pd.DataFrame | dict[str, ArrayLike]
-    ) -> None:
-        self._data = self._convert_data(value)
-
-    def _convert_data(
-        self, value: ro.vectors.DataFrame | pd.DataFrame | dict[str, ArrayLike]
-    ) -> ro.vectors.DataFrame:
-        with conversion.localconverter(default_converter + pandas2ri.converter):
-            if isinstance(value, dict):
-                data_r = pandas2ri.py2rpy(pd.DataFrame(value))
-            elif isinstance(value, pd.DataFrame):
-                data_r = pandas2ri.py2rpy(value)
-            else:
-                data_r = value
-
-        return data_r
-
-    @property
-    def knots(self) -> ArrayLike:
-        return np.asarray(self.knots_r)
-
-    @property
-    def knots_r(self) -> ro.FloatVector:
-        if self._knots_r is NULL:
-            return self.smooth[0].rx2("knots")
-        return self._knots_r
-
-    @knots_r.setter
-    def knots_r(self, value: ArrayLike | ro.FloatVector | None) -> None:
-        if value is None:
-            knots = NULL
-        elif isinstance(value, ro.FloatVector):
-            knots = value
-        else:
-            knots = ro.FloatVector(value)
-
-        self._knots_r = knots
+    def _convert_knots_to_r(self) -> None:
+        """convert knots to R"""
+        if self.knots is not None:
+            to_r(self.knots, self._knots_var)
 
     def all_terms(self) -> list[str]:
-        terms_list = []
-        for smooth in self.smooth:
-            terms_list.append(smooth.rx2("term")[0])
-        return terms_list
+        """get all smooth terms"""
+        r(f"terms_list <- sapply({self._smooth_var}, function(x) x$term)")
+        terms = [to_py("terms_list")]
+        return terms
 
     def all_bases(self) -> list[np.ndarray]:
-        bases_list = []
-        for smooth in self.smooth:
-            bases_list.append(np.asarray(smooth.rx2("X")))
-        return bases_list
+        """get all basis matrices"""
+        r(f"bases_list <- lapply({self._smooth_var}, function(x) x$X)")
+        bases_r: list[pl.DataFrame] = to_py("bases_list")
+        bases_np = [base_r.to_numpy() for base_r in bases_r]
+        print([type(base_r) for base_r in bases_r])
+        return bases_np
 
     def all_penalties(self) -> list[list[np.ndarray]]:
-        pen_list = []
-        for smooth in self.smooth:
-            pen_list2 = []
+        """get all penalty matrices"""
+        r(f"penalties_list <- lapply({self._smooth_var}, function(x) x$S)")
+        penalties_r: list[list[pl.DataFrame]] = to_py("penalties_list")
 
-            for penalty in smooth.rx2("S"):
-                pen_list2.append(np.asarray(penalty))
-
-            pen_list.append(pen_list2)
-        return pen_list
+        penalties = [
+            [penalty_r.to_numpy() for penalty_r in smooth_penalties]
+            for smooth_penalties in penalties_r
+        ]
+        return penalties
 
     def single_basis(self, smooth_index: int = 0) -> np.ndarray:
         return self.all_bases()[smooth_index]
@@ -143,18 +140,29 @@ class SmoothCon:
         return self.all_penalties()[smooth_index][penalty_index]
 
     def predict_all_bases(
-        self, data: ro.vectors.DataFrame | pd.DataFrame | dict[str, ArrayLike]
+        self, data: pd.DataFrame | pl.DataFrame | dict[str, ArrayLike]
     ) -> list[np.ndarray]:
-        data_r = self._convert_data(data)
-        bases_list = []
+        """predict basis matrices for new data"""
+        # convert new data to R
+        pred_data_var = f"pred_data_{uuid.uuid4().hex[:8]}"
+        df = _convert_to_polars(data)
+        to_r(df, pred_data_var)
 
-        for smooth in self.smooth:
-            bases_list.append(np.asarray(mgcv.PredictMat(smooth, data=data_r)))
-        return bases_list
+        # predict basis matrices
+        pred_var = f"pred_bases_{uuid.uuid4().hex[:8]}"
+        r(f"""
+        {pred_var} <- lapply({self._smooth_var}, function(smooth) {{
+            PredictMat(smooth, data={pred_data_var})
+        }})
+        """)
+
+        bases_r = to_py(pred_var)
+        bases = [base_r.to_numpy() for base_r in bases_r]
+        return bases
 
     def predict_single_basis(
         self,
-        data: ro.vectors.DataFrame | pd.DataFrame | dict[str, ArrayLike],
+        data: pd.DataFrame | pl.DataFrame | dict[str, ArrayLike],
         smooth_index: int = 0,
     ) -> np.ndarray:
         return self.predict_all_bases(data)[smooth_index]
@@ -166,7 +174,6 @@ class SmoothCon:
             raise ValueError(
                 "Smooth has more than one basis. Consider using .all_terms()."
             )
-
         return terms[0]
 
     @property
@@ -177,7 +184,6 @@ class SmoothCon:
                 "Smooth has more than one basis. Consider using "
                 ".all_bases() or .single_basis()."
             )
-
         return bases[0]
 
     @property
@@ -190,11 +196,10 @@ class SmoothCon:
                 "Smooth has more than one penalty. Consider using "
                 ".all_penalties() or .single_penalty()."
             )
-
         return penalties[0][0]
 
     def predict(
-        self, data: ro.vectors.DataFrame | pd.DataFrame | dict[str, ArrayLike]
+        self, data: pd.DataFrame | pl.DataFrame | dict[str, ArrayLike]
     ) -> np.ndarray:
         bases = self.predict_all_bases(data)
         if len(bases) > 1:
@@ -211,17 +216,11 @@ class SmoothCon:
 
 class SmoothFactory:
     def __init__(
-        self, data: dict[str, ArrayLike] | pd.DataFrame, pass_to_r: dict | None = None
+        self,
+        data: pl.DataFrame | dict[str, ArrayLike] | pd.DataFrame,
+        pass_to_r: dict | None = None,
     ) -> None:
-        with conversion.localconverter(default_converter + pandas2ri.converter):
-            if isinstance(data, dict):
-                data_r = pandas2ri.py2rpy(pd.DataFrame(data))
-            elif isinstance(data, pd.DataFrame):
-                data_r = pandas2ri.py2rpy(data)
-            else:
-                raise TypeError(f"Type {type(data)} not supported.")
-
-        self.data_r = data_r
+        self.data = data
         self.pass_to_r = pass_to_r if pass_to_r is not None else {}
 
     @property
@@ -232,13 +231,13 @@ class SmoothFactory:
     def pass_to_r(self, value: dict | None):
         value = value if value is not None else {}
         for key, val in value.items():
-            ro.globalenv[key] = val
+            to_r(val, key)
         self._pass_to_r = value
 
     def __call__(
         self,
-        spec: str | ro.vectors.ListVector,
-        knots: ArrayLike | ro.FloatVector | None = None,
+        spec: str,
+        knots: ArrayLike | None = None,
         absorb_cons: bool = True,
         diagonal_penalty: bool = True,
         scale_penalty: bool = True,
@@ -246,7 +245,7 @@ class SmoothFactory:
         smooth = SmoothCon(
             spec=spec,
             knots=knots,
-            data=self.data_r,
+            data=self.data,
             absorb_cons=absorb_cons,
             diagonal_penalty=diagonal_penalty,
             scale_penalty=scale_penalty,
