@@ -174,3 +174,4 @@ cython_debug/
 .pypirc
 .python-version
 /.vscode
+.DS_Store
