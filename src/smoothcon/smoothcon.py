@@ -12,9 +12,6 @@ from ryp import options, r, to_py, to_r
 # Configure ryp to use polars format (currently the default)
 options(to_py_format="polars")
 
-# Load mgcv package (suppress startup messages)
-r("suppressPackageStartupMessages(library(mgcv))")
-
 
 def _convert_to_polars(
     data: pd.DataFrame | pl.DataFrame | dict[str, ArrayLike],
@@ -54,6 +51,9 @@ class SmoothCon:
         scale_penalty: bool = True,
         pass_to_r: dict | None = None,
     ) -> None:
+        # Load mgcv package (suppress startup messages)
+        r("suppressPackageStartupMessages(library(mgcv))")
+
         self.pass_to_r = pass_to_r if pass_to_r is not None else {}
         self.spec = spec
         self.data = _convert_to_polars(data)
