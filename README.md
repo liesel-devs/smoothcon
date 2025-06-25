@@ -37,6 +37,13 @@ You can install the development version from GitHub via pip:
 pip install git+https://github.com/liesel-devs/smoothcon.git
 ```
 
+Smoothcon requires the following R packages:
+
+```r
+install.packages("arrow") # for general usage of ryp
+install.packages("svglite") # for plotting in jupyter notebooks
+```
+
 ## Usage
 
 We illustrate usage with random data:
@@ -64,7 +71,7 @@ is permitted.
 # construct smooth
 smooth = SmoothCon(
     spec="s(times, bs='ps', k=20, m=c(3,2))",   # mgcv smooth specification
-    data=mcycle,                # dictionary or pandas dataframe
+    data=mcycle,                # dictionary, pandas dataframe, or polars dataframe
     knots=None,                 # knots; if None (default), mgcv will create the knots
     absorb_cons=True,           # If True, constraints (e.g. sum-to-zero) will be absorbed into the basis matrix
     diagonal_penalty=True,      # If True, the penalty will be diagonalized
@@ -100,7 +107,7 @@ because it will be converted to an R dataframe each time. So you probably want t
 use the `SmoothFactory` class to initialize your `SmoothCon` objects in most cases:
 
 ```python
-from smoothcon import SmoothCon
+from smoothcon import SmoothFactory
 
 sf = SmoothFactory(data=df, pass_to_r=None) # pass data to R only once
 smooth_x = sf("s(x, bs='ps', k=20)")        # call to initialize a SmoothCon object
@@ -112,7 +119,3 @@ Advanced usage for building generalized additive distributional regression model
 
 - [notebooks/test_gam_gibbs.ipynb](https://github.com/liesel-devs/liesel_gam/blob/main/notebooks/test_gam_gibbs.ipynb): A generalized addition location-scale model, using inverse gamma priors an Gibbs kernels for the inverse smoothing parameters.
 - [notebooks/test_gam_manual.ipynb](https://github.com/liesel-devs/liesel_gam/blob/main/notebooks/test_gam_manual.ipynb): A generalized addition location-scale model, using a manually initialized inverse smoothing parameter with a Weibull prior.
-
-## License
-
-Due to its dependence on `rpy2`, [which is licensed under GPL-2.0](https://github.com/rpy2/rpy2/blob/master/LICENSE) `smoothcon` is also licensed under GPL-2.0. As a result, if you depend on `smoothcon`, your project also needs to be licensed under GPL-2.0.
