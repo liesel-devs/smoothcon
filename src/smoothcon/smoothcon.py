@@ -63,20 +63,20 @@ class SmoothCon:
         self.scale_penalty = scale_penalty
 
         # generate unique variable names for R environment
-        self._data_var = f"smoothcon_data_{uuid.uuid4().hex[:8]}"
-        self._knots_var = f"smoothcon_knots_{uuid.uuid4().hex[:8]}"
-        self._smooth_var = f"smoothcon_smooth_{uuid.uuid4().hex[:8]}"
+        self._data_r_name = f"smoothcon_data_{uuid.uuid4().hex[:8]}"
+        self._knots_r_name = f"smoothcon_knots_{uuid.uuid4().hex[:8]}"
+        self._smooth_r_name = f"smoothcon_smooth_{uuid.uuid4().hex[:8]}"
 
         # convert data to R
         self._convert_data_to_r()
         self._convert_knots_to_r()
 
         # create smooth
-        knots_arg = f"knots={self._knots_var}" if knots is not None else "knots=NULL"
+        knots_arg = f"knots={self._knots_r_name}" if knots is not None else "knots=NULL"
         r_cmd = f"""
-        {self._smooth_var} <- smoothCon(
+        {self._smooth_r_name} <- smoothCon(
             {self.spec},
-            data={self._data_var},
+            data={self._data_r_name},
             {knots_arg},
             absorb.cons={str(absorb_cons).upper()},
             diagonal.penalty={str(diagonal_penalty).upper()},
@@ -97,32 +97,28 @@ class SmoothCon:
         self._pass_to_r = value
 
     def _convert_data_to_r(self) -> None:
-        """convert data to R dataframe"""
-        # data is already converted to polars in __init__
-        to_r(self.data, self._data_var)
+        to_r(self.data, self._data_r_name)
 
     def _convert_knots_to_r(self) -> None:
-        """convert knots to R"""
         if self.knots is not None:
-            to_r(self.knots, self._knots_var)
+            to_r(self.knots, self._knots_r_name)
 
     def all_terms(self) -> list[str]:
         """get all smooth terms"""
-        r(f"terms_list <- sapply({self._smooth_var}, function(x) x$term)")
+        r(f"terms_list <- sapply({self._smooth_r_name}, function(x) x$term)")
         terms = [to_py("terms_list")]
         return terms
 
     def all_bases(self) -> list[np.ndarray]:
         """get all basis matrices"""
-        r(f"bases_list <- lapply({self._smooth_var}, function(x) x$X)")
+        r(f"bases_list <- lapply({self._smooth_r_name}, function(x) x$X)")
         bases_r: list[pl.DataFrame] = to_py("bases_list")
         bases_np = [base_r.to_numpy() for base_r in bases_r]
-        print([type(base_r) for base_r in bases_r])
         return bases_np
 
     def all_penalties(self) -> list[list[np.ndarray]]:
         """get all penalty matrices"""
-        r(f"penalties_list <- lapply({self._smooth_var}, function(x) x$S)")
+        r(f"penalties_list <- lapply({self._smooth_r_name}, function(x) x$S)")
         penalties_r: list[list[pl.DataFrame]] = to_py("penalties_list")
 
         penalties = [
@@ -144,19 +140,19 @@ class SmoothCon:
     ) -> list[np.ndarray]:
         """predict basis matrices for new data"""
         # convert new data to R
-        pred_data_var = f"pred_data_{uuid.uuid4().hex[:8]}"
+        pred_data_r_name = f"pred_data_{uuid.uuid4().hex[:8]}"
         df = _convert_to_polars(data)
-        to_r(df, pred_data_var)
+        to_r(df, pred_data_r_name)
 
         # predict basis matrices
-        pred_var = f"pred_bases_{uuid.uuid4().hex[:8]}"
+        pred_r_name = f"pred_bases_{uuid.uuid4().hex[:8]}"
         r(f"""
-        {pred_var} <- lapply({self._smooth_var}, function(smooth) {{
-            PredictMat(smooth, data={pred_data_var})
-        }})
+            {pred_r_name} <- lapply({self._smooth_r_name}, function(smooth) {{
+                PredictMat(smooth, data={pred_data_r_name})
+            }})
         """)
 
-        bases_r = to_py(pred_var)
+        bases_r = to_py(pred_r_name)
         bases = [base_r.to_numpy() for base_r in bases_r]
         return bases
 
