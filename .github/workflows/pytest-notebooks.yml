@@ -33,7 +33,7 @@ jobs:
         with:
           r-version: 'release'
           use-public-rspm: true
-      
+
       - name: Fix R library path
         run: |
           echo "LD_LIBRARY_PATH=$(R RHOME)/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
