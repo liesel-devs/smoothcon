@@ -37,6 +37,13 @@ You can install the development version from GitHub via pip:
 pip install git+https://github.com/liesel-devs/smoothcon.git
 ```
 
+Smoothcon requires the following R packages:
+
+```r
+install.packages("arrow") # for general usage of ryp
+install.packages("svglite") # for plotting in jupyter notebooks
+```
+
 ## Usage
 
 We illustrate usage with random data:
