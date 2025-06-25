@@ -57,7 +57,7 @@ dev = [
     "ruff>=0.11.8",
 ]
 
-gam = ["liesel_gam>=0.0.5"]
+gam = ["liesel_gam>=0.0.5", "plotnine"]
 
 [tool.hatch.version]
 path = "src/smoothcon/__about__.py"
