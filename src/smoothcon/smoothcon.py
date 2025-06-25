@@ -54,13 +54,13 @@ class SmoothCon:
         # Load mgcv package (suppress startup messages)
         r("suppressPackageStartupMessages(library(mgcv))")
 
-        self.pass_to_r = pass_to_r if pass_to_r is not None else {}
-        self.spec = spec
-        self.data = _convert_to_polars(data)
-        self.knots = knots
-        self.absorb_cons = absorb_cons
-        self.diagonal_penalty = diagonal_penalty
-        self.scale_penalty = scale_penalty
+        self._set_pass_to_r(pass_to_r if pass_to_r is not None else {})
+        self._spec = spec
+        self._data = _convert_to_polars(data)
+        self._knots = knots
+        self._absorb_cons = absorb_cons
+        self._diagonal_penalty = diagonal_penalty
+        self._scale_penalty = scale_penalty
 
         # generate unique variable names for R environment
         self._data_r_name = f"smoothcon_data_{uuid.uuid4().hex[:8]}"
@@ -75,7 +75,7 @@ class SmoothCon:
         knots_arg = f"knots={self._knots_r_name}" if knots is not None else "knots=NULL"
         r_cmd = f"""
         {self._smooth_r_name} <- smoothCon(
-            {self.spec},
+            {self._spec},
             data={self._data_r_name},
             {knots_arg},
             absorb.cons={str(absorb_cons).upper()},
@@ -89,19 +89,42 @@ class SmoothCon:
     def pass_to_r(self) -> dict:
         return self._pass_to_r
 
-    @pass_to_r.setter
-    def pass_to_r(self, value: dict | None):
+    def _set_pass_to_r(self, value: dict | None):
         value = value if value is not None else {}
         for key, val in value.items():
             to_r(val, key)
         self._pass_to_r = value
 
     def _convert_data_to_r(self) -> None:
-        to_r(self.data, self._data_r_name)
+        to_r(self._data, self._data_r_name)
 
     def _convert_knots_to_r(self) -> None:
-        if self.knots is not None:
-            to_r(self.knots, self._knots_r_name)
+        if self._knots is not None:
+            to_r(self._knots, self._knots_r_name)
+
+    @property
+    def spec(self) -> str:
+        return self._spec
+
+    @property
+    def data(self) -> pl.DataFrame:
+        return self._data
+
+    @property
+    def knots(self) -> ArrayLike | None:
+        return self._knots
+
+    @property
+    def absorb_cons(self) -> bool:
+        return self._absorb_cons
+
+    @property
+    def diagonal_penalty(self) -> bool:
+        return self._diagonal_penalty
+
+    @property
+    def scale_penalty(self) -> bool:
+        return self._scale_penalty
 
     def all_terms(self) -> list[str]:
         """get all smooth terms"""
@@ -216,15 +239,18 @@ class SmoothFactory:
         data: pl.DataFrame | dict[str, ArrayLike] | pd.DataFrame,
         pass_to_r: dict | None = None,
     ) -> None:
-        self.data = data
-        self.pass_to_r = pass_to_r if pass_to_r is not None else {}
+        self._data = _convert_to_polars(data)
+        self._set_pass_to_r(pass_to_r)
 
     @property
     def pass_to_r(self) -> dict:
         return self._pass_to_r
 
-    @pass_to_r.setter
-    def pass_to_r(self, value: dict | None):
+    @property
+    def data(self) -> pl.DataFrame:
+        return self._data
+
+    def _set_pass_to_r(self, value: dict | None):
         value = value if value is not None else {}
         for key, val in value.items():
             to_r(val, key)
@@ -241,7 +267,7 @@ class SmoothFactory:
         smooth = SmoothCon(
             spec=spec,
             knots=knots,
-            data=self.data,
+            data=self._data,
             absorb_cons=absorb_cons,
             diagonal_penalty=diagonal_penalty,
             scale_penalty=scale_penalty,
