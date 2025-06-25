@@ -12,12 +12,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Intended Audience :: Science/Research",
 ]
-dependencies = [
-    "numpy>=2.2.5",
-    "pandas>=2.2.3",
-    "polars>=1.31.0",
-    "ryp>=0.2.0",
-]
+dependencies = ["numpy>=2.2.5", "pandas>=2.2.3", "polars>=1.31.0", "ryp>=0.2.0"]
 
 
 [tool.pytest.ini_options]
@@ -61,6 +56,8 @@ dev = [
     "pytest-cov>=6.1.1",
     "ruff>=0.11.8",
 ]
+
+gam = ["liesel_gam>=0.0.5"]
 
 [tool.hatch.version]
 path = "src/smoothcon/__about__.py"
