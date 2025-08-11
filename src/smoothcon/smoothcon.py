@@ -47,7 +47,7 @@ class SmoothCon:
         data: pd.DataFrame | pl.DataFrame | dict[str, ArrayLike],
         knots: ArrayLike | None = None,
         absorb_cons: bool = True,
-        diagonal_penalty: bool = True,
+        diagonal_penalty: bool = False,
         scale_penalty: bool = True,
         pass_to_r: dict | None = None,
     ) -> None:
@@ -282,7 +282,7 @@ class SmoothFactory:
         spec: str,
         knots: ArrayLike | None = None,
         absorb_cons: bool = True,
-        diagonal_penalty: bool = True,
+        diagonal_penalty: bool = False,
         scale_penalty: bool = True,
     ) -> SmoothCon:
         smooth = SmoothCon(
