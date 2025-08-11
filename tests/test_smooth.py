@@ -87,6 +87,12 @@ class TestSmoothConBasics:
         smooth = SmoothCon("s(x0, bs='ps', k=8)", data=data)
         assert smooth.term == "x0"
 
+    def test_custom_knots(self) -> None:
+        knots = np.linspace(-4.4, 4.4, 12)
+        smooth = SmoothCon("s(x0, bs='ps', k=8)", data=data, knots=knots)
+
+        assert np.allclose(knots, smooth.knots)
+
 
 class TestSmoothFactory:
     def test_init(self) -> None:

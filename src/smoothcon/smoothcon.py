@@ -69,10 +69,20 @@ class SmoothCon:
 
         # convert data to R
         self._convert_data_to_r()
+        if len(self.all_terms()) > 1:
+            raise ValueError(
+                f"Smooth contains {len(self.all_terms())} terms, but currently only "
+                "one term is supported."
+            )
+
         self._convert_knots_to_r()
 
         # create smooth
-        knots_arg = f"knots={self._knots_r_name}" if knots is not None else "knots=NULL"
+        knots_arg = (
+            f"knots=list({self.term}={self._knots_r_name})"
+            if knots is not None
+            else "knots=NULL"
+        )
         r_cmd = f"""
         {self._smooth_r_name} <- smoothCon(
             {self._spec},
@@ -111,7 +121,11 @@ class SmoothCon:
         return self._data
 
     @property
-    def knots(self) -> ArrayLike | None:
+    def knots(self) -> ArrayLike:
+        if self._knots is not None:
+            return self._knots
+
+        self._knots = to_py(self._knots_r_name)
         return self._knots
 
     @property
@@ -128,7 +142,14 @@ class SmoothCon:
 
     def all_terms(self) -> list[str]:
         """get all smooth terms"""
-        r(f"terms_list <- sapply({self._smooth_r_name}, function(x) x$term)")
+        try:
+            r(f"terms_list <- sapply({self._smooth_r_name}, function(x) x$term)")
+        except RuntimeError:
+            r(f"""terms_list <- sapply(smoothCon(
+                {self._spec},
+                data={self._data_r_name},
+                knots=NULL,
+            ), function(x) x$term)""")
         terms = [to_py("terms_list")]
         return terms
 
