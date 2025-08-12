@@ -101,3 +101,8 @@ class TestSmoothFactory:
 
         assert smooth.basis.shape == (n, 7)  # 7, because of sum-to-zero constraint
         assert not np.any(np.isnan(smooth.basis))
+
+    def test_custom_knots(self) -> None:
+        knots = np.linspace(-4.4, 4.4, 12)
+        sf = SmoothFactory(data)
+        smooth = sf("s(x0, bs='ps', k=8)", knots=knots)
