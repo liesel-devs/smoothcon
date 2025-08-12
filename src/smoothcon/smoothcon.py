@@ -144,7 +144,7 @@ class SmoothCon:
         """get all smooth terms"""
         try:
             r(f"terms_list <- sapply({self._smooth_r_name}, function(x) x$term)")
-        except RuntimeError:
+        except (RuntimeError, NameError):
             r(f"""terms_list <- sapply(smoothCon(
                 {self._spec},
                 data={self._data_r_name},
