@@ -56,7 +56,7 @@ class SmoothCon:
 
         self._set_pass_to_r(pass_to_r if pass_to_r is not None else {})
         self._spec = spec
-        self._data = _convert_to_polars(data)
+        self._data = data if not isinstance(data, dict) else pd.DataFrame(data)
         self._knots = knots
         self._absorb_cons = absorb_cons
         self._diagonal_penalty = diagonal_penalty
@@ -260,7 +260,7 @@ class SmoothFactory:
         data: pl.DataFrame | dict[str, ArrayLike] | pd.DataFrame,
         pass_to_r: dict | None = None,
     ) -> None:
-        self._data = _convert_to_polars(data)
+        self._data = data if not isinstance(data, dict) else pd.DataFrame(data)
         self._set_pass_to_r(pass_to_r)
 
     @property
