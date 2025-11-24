@@ -19,6 +19,7 @@ This package is experimental and under active development. That means:
 
 - The API cannot be considered stable. If you depend on this package, pin the version.
 - Testing has not been extensive as of now. Please check and verify!
+- Smoothcon is currently tested only for simple, univariate bases. For tensor products or markov random fields, you will need to be very careful and know what you are doing.
 - There is currently no documentation beyond this readme.
 
 In any case, this package comes with no warranty or guarantees.
