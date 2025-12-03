@@ -4,9 +4,9 @@
 [![pytest](https://github.com/liesel-devs/smoothcon/actions/workflows/pytest.yml/badge.svg)](https://github.com/liesel-devs/smoothcon/actions/workflows/pytest.yml)
 [![pytest-cov](https://raw.githubusercontent.com/liesel-devs/smoothcon/refs/heads/main/tests/coverage.svg)](https://github.com/liesel-devs/smoothcon/actions/workflows/pytest.yml)
 
-This is a small wrapper that pulls basis and penalty matrices from the R packge [mgcv](https://cran.r-project.org/web/packages/mgcv/index.html) and converts them to numpy arrays.
+This is a small wrapper that pulls basis and penalty matrices from the R packge [mgcv](https://cran.r-project.org/web/packages/mgcv/index.html) and converts them to numpy arrays via [ryp](https://github.com/Wainberg/ryp).
 
-Although `smoothcon` is part of the [`liesel`](https://github.com/liesel-devs/liesel)
+Although `smoothcon` is adjacent to the [`liesel`](https://github.com/liesel-devs/liesel)
 ecosystem, it has no dependence on Liesel and can be used independently.
 `smoothcon` works well together with [`liesel_gam`](https://github.com/liesel-devs/liesel_gam)
 for building generalized additive distributional regresion models, see also the
