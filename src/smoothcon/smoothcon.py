@@ -165,11 +165,14 @@ class SmoothCon:
         r(f"penalties_list <- lapply({self._smooth_r_name}, function(x) x$S)")
         penalties_r: list[list[pl.DataFrame]] = to_py("penalties_list")
 
-        penalties = [
-            [penalty_r.to_numpy() for penalty_r in smooth_penalties]
-            for smooth_penalties in penalties_r
-        ]
-        return penalties
+        penalties_py = []
+        for smooth in penalties_r:
+            if isinstance(smooth, dict):  # this is for gp smooths
+                penalties_py.append([smooth["S"].to_numpy()])
+            else:
+                penalties_py.append([penalty_r.to_numpy() for penalty_r in smooth])
+
+        return penalties_py
 
     def single_basis(self, smooth_index: int = 0) -> np.ndarray:
         return self.all_bases()[smooth_index]
