@@ -3,7 +3,7 @@ name = "smoothcon"
 dynamic = ["version"]
 description = "Get basis and penalty matrices from mgcv and convert them to numpy arrays"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.13,<3.14"
 authors = [{ name = "Johannes Brachem" }]
 keywords = ["statistics", "machine-learning"]
 classifiers = [
