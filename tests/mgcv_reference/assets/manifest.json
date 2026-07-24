@@ -1,0 +1,439 @@
+{
+  "cases": {
+    "bs": {
+      "nullity": 2,
+      "rank": 7,
+      "sha256": "630557885ce7edb8ede7b3ad51bcce820558ffe0d4c37bc3fe8458ce166bb526",
+      "shapes": {
+        "basis": [
+          34,
+          9
+        ],
+        "new_basis": [
+          8,
+          9
+        ],
+        "new_x": [
+          8,
+          1
+        ],
+        "penalty": [
+          9,
+          9
+        ],
+        "x": [
+          34,
+          1
+        ]
+      }
+    },
+    "cc": {
+      "nullity": 1,
+      "rank": 7,
+      "sha256": "d986e650e9f4f0659c663e1aba0df5884faa8e6a837fdae9168c689c2112703f",
+      "shapes": {
+        "basis": [
+          34,
+          8
+        ],
+        "new_basis": [
+          8,
+          8
+        ],
+        "new_x": [
+          8,
+          1
+        ],
+        "penalty": [
+          8,
+          8
+        ],
+        "x": [
+          34,
+          1
+        ]
+      }
+    },
+    "cp": {
+      "nullity": 1,
+      "rank": 8,
+      "sha256": "fd0906b50b1b2e6f1f712037959546a3282ac0d7d9bc0e0dac31c7802a815f69",
+      "shapes": {
+        "basis": [
+          34,
+          9
+        ],
+        "new_basis": [
+          8,
+          9
+        ],
+        "new_x": [
+          8,
+          1
+        ],
+        "penalty": [
+          9,
+          9
+        ],
+        "x": [
+          34,
+          1
+        ]
+      }
+    },
+    "cr": {
+      "nullity": 2,
+      "rank": 7,
+      "sha256": "95d19b3bb185323e01d219d7a98156a41bcc597976987a40b5aa5ecdcd56f24e",
+      "shapes": {
+        "basis": [
+          34,
+          9
+        ],
+        "new_basis": [
+          8,
+          9
+        ],
+        "new_x": [
+          8,
+          1
+        ],
+        "penalty": [
+          9,
+          9
+        ],
+        "x": [
+          34,
+          1
+        ]
+      }
+    },
+    "cs": {
+      "nullity": 0,
+      "rank": 9,
+      "sha256": "c60a88b2290fb2058562f0c565f02fa6981770b5c1848550006177bbf61ae28f",
+      "shapes": {
+        "basis": [
+          34,
+          9
+        ],
+        "new_basis": [
+          8,
+          9
+        ],
+        "new_x": [
+          8,
+          1
+        ],
+        "penalty": [
+          9,
+          9
+        ],
+        "x": [
+          34,
+          1
+        ]
+      }
+    },
+    "gp_matern15": {
+      "nullity": 3,
+      "rank": 9,
+      "sha256": "c3bb2d176e48cdddf4c34f8953e23df9c654f065418a250cb02eacdc53018715",
+      "shapes": {
+        "basis": [
+          36,
+          12
+        ],
+        "new_basis": [
+          6,
+          12
+        ],
+        "new_x": [
+          6,
+          2
+        ],
+        "penalty": [
+          12,
+          12
+        ],
+        "x": [
+          36,
+          2
+        ]
+      }
+    },
+    "gp_matern25": {
+      "nullity": 3,
+      "rank": 9,
+      "sha256": "440989ffb1fc808134aecea47661e5ba39920681e3e3f1cc1733f4d309a64be2",
+      "shapes": {
+        "basis": [
+          36,
+          12
+        ],
+        "new_basis": [
+          6,
+          12
+        ],
+        "new_x": [
+          6,
+          2
+        ],
+        "penalty": [
+          12,
+          12
+        ],
+        "x": [
+          36,
+          2
+        ]
+      }
+    },
+    "gp_matern35_stationary": {
+      "nullity": 1,
+      "rank": 11,
+      "sha256": "c61af9e6a146154dbd1907b8bb1a99ea231e855d320c8098623482de60806944",
+      "shapes": {
+        "basis": [
+          36,
+          12
+        ],
+        "new_basis": [
+          6,
+          12
+        ],
+        "new_x": [
+          6,
+          2
+        ],
+        "penalty": [
+          12,
+          12
+        ],
+        "x": [
+          36,
+          2
+        ]
+      }
+    },
+    "gp_power": {
+      "nullity": 3,
+      "rank": 9,
+      "sha256": "4ef6eda2ef39ad2fe124961c7b16be547fb40245ba7028d0cd8b36973f76e91b",
+      "shapes": {
+        "basis": [
+          36,
+          12
+        ],
+        "new_basis": [
+          6,
+          12
+        ],
+        "new_x": [
+          6,
+          2
+        ],
+        "penalty": [
+          12,
+          12
+        ],
+        "x": [
+          36,
+          2
+        ]
+      }
+    },
+    "gp_spherical": {
+      "nullity": 3,
+      "rank": 9,
+      "sha256": "655b241cf98b56d09c9ee4c935b11387e1e8768206f53b00485480afb82d582a",
+      "shapes": {
+        "basis": [
+          36,
+          12
+        ],
+        "new_basis": [
+          6,
+          12
+        ],
+        "new_x": [
+          6,
+          2
+        ],
+        "penalty": [
+          12,
+          12
+        ],
+        "x": [
+          36,
+          2
+        ]
+      }
+    },
+    "mrf_full": {
+      "nullity": 1,
+      "rank": 5,
+      "sha256": "ebd8dd756fe47ecfa57652aaca80d2a949ecd226b7e22420f7c485463f9aadb9",
+      "shapes": {
+        "basis": [
+          12,
+          6
+        ],
+        "new_basis": [
+          4,
+          6
+        ],
+        "new_x": [
+          4,
+          1
+        ],
+        "penalty": [
+          6,
+          6
+        ],
+        "x": [
+          12,
+          1
+        ]
+      }
+    },
+    "mrf_low_rank": {
+      "nullity": 1,
+      "rank": 3,
+      "sha256": "d92e1b0e669938db5286a3e8ec1783a392c0d6ef3b4edaf15ec789ce75171451",
+      "shapes": {
+        "basis": [
+          12,
+          4
+        ],
+        "new_basis": [
+          4,
+          4
+        ],
+        "new_x": [
+          4,
+          1
+        ],
+        "penalty": [
+          4,
+          4
+        ],
+        "x": [
+          12,
+          1
+        ]
+      }
+    },
+    "ps": {
+      "nullity": 2,
+      "rank": 7,
+      "sha256": "e256515b8fa76dc3227909fa7bc41227088a946fd21045a056b21873f3ebcd46",
+      "shapes": {
+        "basis": [
+          34,
+          9
+        ],
+        "new_basis": [
+          8,
+          9
+        ],
+        "new_x": [
+          8,
+          1
+        ],
+        "penalty": [
+          9,
+          9
+        ],
+        "x": [
+          34,
+          1
+        ]
+      }
+    },
+    "tp_1d": {
+      "nullity": 2,
+      "rank": 7,
+      "sha256": "d2fcb786291257773eaf287c9a0dd1edd4f227a609fbcc24e174ff0e90209850",
+      "shapes": {
+        "basis": [
+          34,
+          9
+        ],
+        "new_basis": [
+          8,
+          9
+        ],
+        "new_x": [
+          8,
+          1
+        ],
+        "penalty": [
+          9,
+          9
+        ],
+        "x": [
+          34,
+          1
+        ]
+      }
+    },
+    "tp_2d": {
+      "nullity": 3,
+      "rank": 9,
+      "sha256": "0700fa22ff1dbb2bf6fb5fd04018e3be5a3325c6eec1002d9f2e17729d693bf6",
+      "shapes": {
+        "basis": [
+          36,
+          12
+        ],
+        "new_basis": [
+          6,
+          12
+        ],
+        "new_x": [
+          6,
+          2
+        ],
+        "penalty": [
+          12,
+          12
+        ],
+        "x": [
+          36,
+          2
+        ]
+      }
+    },
+    "ts_2d": {
+      "nullity": 0,
+      "rank": 12,
+      "sha256": "0e619bb6cc144c8eddbda5683e1cc8586bb7f96cbb225d2cf9eca69bc93ce92b",
+      "shapes": {
+        "basis": [
+          36,
+          12
+        ],
+        "new_basis": [
+          6,
+          12
+        ],
+        "new_x": [
+          6,
+          2
+        ],
+        "penalty": [
+          12,
+          12
+        ],
+        "x": [
+          36,
+          2
+        ]
+      }
+    }
+  },
+  "generator": "generate.R",
+  "mgcv_commit": "1b6a4c8374612da27e36420b4459e93acb183f2d",
+  "mgcv_version": "1.9.4"
+}

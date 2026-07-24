@@ -1,0 +1,47 @@
+[project]
+name = "smoothcon"
+version = "0.1.0"
+description = "JAX-native basis and penalty construction for smooth terms"
+readme = "README.md"
+requires-python = ">=3.13,<3.15"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+authors = [{ name = "Johannes Brachem" }]
+dependencies = [
+    "jax>=0.7.1",
+    "numpy>=2.0",
+]
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Intended Audience :: Science/Research",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+    "pre-commit>=4.2.0",
+    "pytest>=8.3.5",
+    "ruff>=0.11.4",
+    "ty>=0.0.63",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.mypy]
+files = ["src", "tests"]
+ignore_missing_imports = true
+scripts_are_modules = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
