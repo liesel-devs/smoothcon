@@ -1,5 +1,7 @@
 # smoothcon
 
+[![coverage](https://raw.githubusercontent.com/liesel-devs/smoothcon2/pytest-cov/tests/coverage.svg)](https://github.com/liesel-devs/smoothcon2/actions/workflows/pytest.yml)
+
 `smoothcon` constructs JAX-native basis matrices and quadratic penalties for
 smooth terms. It is a standalone numerical library: arrays and construction
 parameters go in, and an immutable `Smooth` comes out.

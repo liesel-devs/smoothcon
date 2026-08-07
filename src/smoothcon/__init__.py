@@ -1,7 +1,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Johannes Brachem
 
-"""JAX-native basis and penalty construction for smooth terms."""
+"""JAX-native basis and penalty construction for smooth terms.
+
+Examples
+--------
+>>> import jax.numpy as jnp
+>>> import smoothcon
+>>> x = jnp.linspace(0.0, 1.0, 5)
+>>> smooth = smoothcon.pspline(x, k=4, degree=3, penalty_order=2)
+>>> smooth.basis(x).shape
+(5, 4)
+>>> smooth.penalty.shape
+(4, 4)
+"""
 
 from ._mrf import laplacian as laplacian
 from ._mrf import mrf as mrf
