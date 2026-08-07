@@ -165,7 +165,62 @@ def thin_plate(
     shrinkage: bool = False,
     remove_null_space: bool = False,
 ) -> Smooth:
-    """Construct a low-rank thin-plate regression spline."""
+    """Construct a low-rank thin-plate regression spline.
+
+    Thin-plate splines provide an isotropic smooth without choosing knot axes.
+    This low-rank construction follows Wood (2003) and retains a polynomial
+    null space unless it is shrunk or removed. Its function space follows the
+    corresponding mgcv construction, but basis coordinates need not match.
+
+    Parameters
+    ----------
+    x
+        Covariate vector or matrix with observations in rows and dimensions in
+        columns.
+    k
+        Requested basis dimension. It is raised when necessary to leave at
+        least one penalized direction beyond the polynomial null space.
+    penalty_order
+        Thin-plate derivative order. Invalid low orders are raised to the
+        smallest valid order for the covariate dimension.
+    knots
+        Optional center locations, as a vector in one dimension or a matrix in
+        multiple dimensions. ``None`` uses unique covariate locations.
+    shrinkage
+        Whether to add small penalties to the polynomial null space.
+    remove_null_space
+        Whether to drop the polynomial null-space columns and center the
+        remaining basis over ``x``.
+
+    Returns
+    -------
+    smooth :
+        A low-rank thin-plate smooth whose ``knots`` contain its centers.
+
+    Raises
+    ------
+    ValueError
+        If the covariates or custom knots have invalid dimensions, or too few
+        unique locations support the requested basis.
+
+    References
+    ----------
+    Wood, S. N. (2003). Thin plate regression splines. *Journal of the Royal
+    Statistical Society: Series B*, 65(1), 95–114.
+    https://doi.org/10.1111/1467-9868.00374
+
+    Examples
+    --------
+    ```pycon
+    >>> import jax.numpy as jnp
+    >>> from smoothcon import thin_plate
+    >>> x = jnp.linspace(0.0, 1.0, 10)
+    >>> smooth = thin_plate(x, k=6, penalty_order=2)
+    >>> assert smooth.basis(x).shape == (10, 6)
+    >>> assert smooth.rank == 4
+
+    ```
+    """
     x_array = _as_matrix(x)
     dimension = x_array.shape[1]
     order, nullity = _null_space_dimension(dimension, penalty_order)
@@ -287,7 +342,66 @@ def gaussian_process(
     power: float,
     knots: ArrayLike | None = None,
 ) -> Smooth:
-    """Construct the low-rank fixed-range GP smooth used by mgcv."""
+    """Construct a low-rank fixed-range Gaussian-process smooth.
+
+    The basis is a deterministic low-rank approximation of a stationary
+    covariance kernel, augmented by a constant or linear trend. This follows
+    mgcv's fixed-range construction; basis coordinates may differ even when
+    the represented smooth is equivalent.
+
+    Parameters
+    ----------
+    x
+        Covariate vector or matrix with observations in rows and dimensions in
+        columns.
+    k
+        Requested total basis dimension. It is raised when necessary to include
+        the chosen trend and at least one penalized direction.
+    kernel_name
+        One of ``"spherical"``, ``"power_exponential"``, ``"matern1.5"``,
+        ``"matern2.5"``, or ``"matern3.5"``.
+    linear_trend
+        Whether to include linear covariate columns in addition to an intercept.
+    range_
+        Positive kernel range. ``None`` or a non-positive value uses the maximum
+        pairwise distance between centers.
+    power
+        Exponent for the ``"power_exponential"`` kernel; ignored by the other
+        kernels.
+    knots
+        Optional kernel centers, as a vector in one dimension or a matrix in
+        multiple dimensions. ``None`` uses unique covariate locations.
+
+    Returns
+    -------
+    smooth :
+        A low-rank Gaussian-process smooth whose ``knots`` contain its centers.
+
+    Raises
+    ------
+    ValueError
+        If the kernel name, covariates, or custom knots are invalid, or too few
+        unique locations support the requested basis.
+
+    Examples
+    --------
+    ```pycon
+    >>> import jax.numpy as jnp
+    >>> from smoothcon import gaussian_process
+    >>> x = jnp.linspace(0.0, 1.0, 10)
+    >>> smooth = gaussian_process(
+    ...     x,
+    ...     k=5,
+    ...     kernel_name="matern1.5",
+    ...     linear_trend=True,
+    ...     range_=None,
+    ...     power=1.5,
+    ... )
+    >>> assert smooth.basis(x).shape == (10, 5)
+    >>> assert smooth.rank == 3
+
+    ```
+    """
     x_array = _as_matrix(x)
     dimension = x_array.shape[1]
     shift = jnp.mean(x_array, axis=0)

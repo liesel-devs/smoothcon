@@ -56,7 +56,49 @@ def pspline(
     penalty_order: int,
     knots: ArrayLike | None = None,
 ) -> Smooth:
-    """Construct an ordinary P-spline."""
+    """Construct a B-spline basis with a coefficient-difference penalty.
+
+    This is the standard P-spline construction: a flexible local basis is
+    regularized by finite differences between neighboring coefficients. Basis
+    evaluation uses linear extrapolation beyond the interior knot range.
+
+    Parameters
+    ----------
+    x
+        One-dimensional values used to choose or validate the knots.
+    k
+        Number of basis functions and coefficients.
+    degree
+        Polynomial degree of the B-spline basis.
+    penalty_order
+        Order of the coefficient differences in the penalty.
+    knots
+        Knot specification. Use ``None`` for automatic knots, two values for
+        boundary limits, or ``k + degree + 1`` values for the full sequence.
+
+    Returns
+    -------
+    smooth :
+        A smooth with ``k`` basis columns and penalty rank
+        ``k - penalty_order``.
+
+    Raises
+    ------
+    ValueError
+        If the basis dimension or knot specification is invalid.
+
+    Examples
+    --------
+    ```pycon
+    >>> import jax.numpy as jnp
+    >>> from smoothcon import pspline
+    >>> x = jnp.linspace(0.0, 1.0, 10)
+    >>> smooth = pspline(x, k=6, degree=3, penalty_order=2)
+    >>> assert smooth.basis(x).shape == (10, 6)
+    >>> assert smooth.rank == 4
+
+    ```
+    """
     if k <= degree - 1:
         raise ValueError("Basis dimension is too small for the B-spline degree.")
     knot_array = jnp.asarray(_pspline_knots(x, k, degree, knots))
@@ -127,7 +169,51 @@ def bspline(
     penalty_order: int,
     knots: ArrayLike | None = None,
 ) -> Smooth:
-    """Construct a B-spline with an integrated squared derivative penalty."""
+    """Construct a B-spline with an integrated derivative penalty.
+
+    Unlike a P-spline coefficient penalty, this construction numerically
+    integrates the squared derivative of each basis function. Evaluation uses
+    linear extrapolation beyond the interior knot range.
+
+    Parameters
+    ----------
+    x
+        One-dimensional values used to choose or validate the knots.
+    k
+        Number of basis functions and coefficients.
+    degree
+        Polynomial degree of the B-spline basis.
+    penalty_order
+        Derivative order used in the integrated squared penalty.
+    knots
+        Knot specification. Use ``None`` for automatic knots, two values for
+        boundary limits, four mgcv-style boundary knots, or
+        ``k + degree + 1`` values for the full sequence.
+
+    Returns
+    -------
+    smooth :
+        A smooth with ``k`` basis columns and penalty rank
+        ``k - penalty_order``.
+
+    Raises
+    ------
+    ValueError
+        If the knot specification is invalid or ``penalty_order`` exceeds
+        ``degree``.
+
+    Examples
+    --------
+    ```pycon
+    >>> import jax.numpy as jnp
+    >>> from smoothcon import bspline
+    >>> x = jnp.linspace(0.0, 1.0, 10)
+    >>> smooth = bspline(x, k=6, degree=3, penalty_order=2)
+    >>> assert smooth.basis(x).shape == (10, 6)
+    >>> assert smooth.penalty.shape == (6, 6)
+
+    ```
+    """
     knot_values = _bspline_knots(x, k, degree, knots)
     knot_array = jnp.asarray(knot_values)
     penalty = _derivative_penalty(knot_values, degree, penalty_order)
@@ -146,7 +232,48 @@ def cyclic_pspline(
     penalty_order: int,
     knots: ArrayLike | None = None,
 ) -> Smooth:
-    """Construct a cyclic P-spline."""
+    """Construct a periodic B-spline with wrapped coefficient differences.
+
+    Values outside the boundary interval are wrapped into it. Both the basis
+    and the difference penalty join across the boundary, making this useful for
+    seasonal or angular covariates.
+
+    Parameters
+    ----------
+    x
+        One-dimensional values used to choose or validate the boundary range.
+    k
+        Number of periodic basis functions and coefficients.
+    degree
+        Polynomial degree of the B-spline basis.
+    penalty_order
+        Order of the wrapped coefficient differences.
+    knots
+        Knot specification. Use ``None`` for automatic knots, two values for
+        boundary limits, or exactly ``k + 1`` knot values.
+
+    Returns
+    -------
+    smooth :
+        A periodic smooth with ``k`` basis columns and rank ``k - 1``.
+
+    Raises
+    ------
+    ValueError
+        If the boundary range, knot specification, or penalty order is invalid.
+
+    Examples
+    --------
+    ```pycon
+    >>> import jax.numpy as jnp
+    >>> from smoothcon import cyclic_pspline
+    >>> x = jnp.linspace(0.0, 1.0, 10)
+    >>> smooth = cyclic_pspline(x, k=6, degree=3, penalty_order=2)
+    >>> endpoints = smooth.basis(jnp.array([0.0, 1.0]))
+    >>> assert bool(jnp.allclose(endpoints[0], endpoints[1]))
+
+    ```
+    """
     if knots is None:
         knot_values = np.linspace(np.min(x), np.max(x), k + 1)
     else:
@@ -243,7 +370,46 @@ def cubic_regression(
     knots: ArrayLike | None = None,
     shrinkage: bool = False,
 ) -> Smooth:
-    """Construct a natural cardinal cubic regression spline."""
+    """Construct a natural cardinal cubic regression spline.
+
+    Coefficients represent function values at the knots. The curvature penalty
+    has an unpenalized constant-and-linear null space unless ``shrinkage`` is
+    enabled, and evaluation extrapolates linearly beyond the boundary knots.
+
+    Parameters
+    ----------
+    x
+        One-dimensional values used to place or validate the knots.
+    k
+        Number of knots, basis functions, and coefficients.
+    knots
+        Exact knot locations. ``None`` chooses quantiles of the unique values.
+    shrinkage
+        Whether to add small penalties to the two null-space directions.
+
+    Returns
+    -------
+    smooth :
+        A natural cubic smooth with rank ``k - 2``, or ``k`` with shrinkage.
+
+    Raises
+    ------
+    ValueError
+        If there are fewer than ``k`` unique values or the supplied knots are
+        invalid.
+
+    Examples
+    --------
+    ```pycon
+    >>> import jax.numpy as jnp
+    >>> from smoothcon import cubic_regression
+    >>> x = jnp.linspace(0.0, 1.0, 12)
+    >>> smooth = cubic_regression(x, k=6)
+    >>> assert smooth.basis(x).shape == (12, 6)
+    >>> assert smooth.rank == 4
+
+    ```
+    """
     unique = np.unique(np.asarray(x, dtype=float).reshape(-1))
     if unique.size < k:
         raise ValueError("Insufficient unique values to support the requested knots.")
@@ -312,7 +478,45 @@ def cyclic_cubic(
     k: int,
     knots: ArrayLike | None = None,
 ) -> Smooth:
-    """Construct a periodic cardinal cubic regression spline."""
+    """Construct a periodic cardinal cubic regression spline.
+
+    The first and last knot describe the same periodic boundary, so ``k``
+    knots produce ``k - 1`` coefficients. Values outside that interval are
+    wrapped into it.
+
+    Parameters
+    ----------
+    x
+        One-dimensional values used to place or validate the knots.
+    k
+        Number of knots, with a minimum of four.
+    knots
+        Knot specification. ``None`` chooses quantiles, two values contribute
+        boundary information, and ``k`` values specify the complete sequence.
+
+    Returns
+    -------
+    smooth :
+        A periodic cubic smooth with ``k - 1`` basis columns and rank ``k - 2``.
+
+    Raises
+    ------
+    ValueError
+        If there are fewer than ``k`` unique values or the supplied knots are
+        invalid.
+
+    Examples
+    --------
+    ```pycon
+    >>> import jax.numpy as jnp
+    >>> from smoothcon import cyclic_cubic
+    >>> x = jnp.linspace(0.0, 1.0, 12)
+    >>> smooth = cyclic_cubic(x, k=6)
+    >>> assert smooth.basis(x).shape == (12, 5)
+    >>> assert smooth.rank == 4
+
+    ```
+    """
     k = max(k, 4)
     unique = np.unique(np.asarray(x, dtype=float).reshape(-1))
     if unique.size < k:

@@ -5,15 +5,13 @@
 
 Examples
 --------
-```python
+```pycon
 >>> import jax.numpy as jnp
 >>> import smoothcon
 >>> x = jnp.linspace(0.0, 1.0, 5)
 >>> smooth = smoothcon.pspline(x, k=4, degree=3, penalty_order=2)
->>> smooth.basis(x).shape
-(5, 4)
->>> smooth.penalty.shape
-(4, 4)
+>>> assert smooth.basis(x).shape == (5, 4)
+>>> assert smooth.penalty.shape == (4, 4)
 
 ```
 """

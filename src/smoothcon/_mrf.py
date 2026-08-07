@@ -19,7 +19,41 @@ from ._smooth import Array, ArrayLike, Smooth
 def polygon_neighbors(
     polygons: Mapping[str, ArrayLike],
 ) -> dict[str, list[str]]:
-    """Infer neighbors from polygons sharing at least one exact vertex."""
+    """Infer polygon neighbors from shared vertices.
+
+    Two regions are adjacent when their coordinate arrays contain at least one
+    exactly equal vertex. Rows containing ``NaN`` are ignored, which permits
+    common multipart-polygon separators.
+
+    Parameters
+    ----------
+    polygons
+        Mapping from region labels to two-column coordinate arrays.
+
+    Returns
+    -------
+    neighbors :
+        Symmetric mapping from each label to its neighboring labels.
+
+    Raises
+    ------
+    ValueError
+        If a polygon is not a two-column coordinate array.
+
+    Examples
+    --------
+    ```pycon
+    >>> import numpy as np
+    >>> from smoothcon import polygon_neighbors
+    >>> polygons = {
+    ...     "left": np.array([[0, 0], [1, 0], [1, 1], [0, 1]]),
+    ...     "right": np.array([[1, 0], [2, 0], [2, 1], [1, 1]]),
+    ... }
+    >>> neighbors = polygon_neighbors(polygons)
+    >>> assert neighbors == {"left": ["right"], "right": ["left"]}
+
+    ```
+    """
     vertices: dict[str, set[tuple[float, float]]] = {}
     for label, polygon in polygons.items():
         array = np.asarray(polygon, dtype=float)
@@ -45,7 +79,43 @@ def normalize_neighbors(
     labels: Sequence[str],
     index_labels: Sequence[str] | None = None,
 ) -> dict[str, list[str]]:
-    """Validate and normalize label- or index-valued neighbors."""
+    """Normalize label- or index-valued neighborhood definitions.
+
+    Integer neighbors are zero-based indices into ``index_labels``. If that
+    ordering is omitted, sorted region labels are used. Label-valued neighbors
+    are preserved after validation.
+
+    Parameters
+    ----------
+    neighbors
+        Mapping with one entry per region and one-dimensional neighbor values.
+    labels
+        Complete set of region labels.
+    index_labels
+        Label order used to interpret numeric indices.
+
+    Returns
+    -------
+    normalized :
+        Neighborhood mapping expressed entirely with string labels.
+
+    Raises
+    ------
+    ValueError
+        If labels, indices, or neighbor-array dimensions are invalid.
+    TypeError
+        If neighbor values use an unsupported dtype.
+
+    Examples
+    --------
+    ```pycon
+    >>> from smoothcon import normalize_neighbors
+    >>> raw = {"a": [1], "b": [0, 2], "c": [1]}
+    >>> neighbors = normalize_neighbors(raw, ["a", "b", "c"])
+    >>> assert neighbors["b"] == ["a", "c"]
+
+    ```
+    """
     if set(neighbors) != set(labels):
         raise ValueError("Names in 'neighbors' must correspond to the labels.")
     indexed_labels = list(index_labels) if index_labels is not None else sorted(labels)
@@ -84,7 +154,41 @@ def normalize_neighbors(
 def laplacian(
     neighbors: Mapping[str, Sequence[str]], labels: Sequence[str]
 ) -> np.ndarray:
-    """Construct and validate a graph-Laplacian penalty."""
+    """Construct a graph-Laplacian penalty from a neighborhood mapping.
+
+    The diagonal records each region's number of distinct neighbors and a
+    neighboring pair receives ``-1`` off the diagonal. The order of ``labels``
+    determines the matrix rows and columns.
+
+    Parameters
+    ----------
+    neighbors
+        Symmetric mapping from region labels to neighboring labels.
+    labels
+        Region order for the output matrix.
+
+    Returns
+    -------
+    penalty :
+        Symmetric graph-Laplacian matrix.
+
+    Raises
+    ------
+    ValueError
+        If the neighborhood relation is not symmetric.
+
+    Examples
+    --------
+    ```pycon
+    >>> import numpy as np
+    >>> from smoothcon import laplacian
+    >>> neighbors = {"a": ["b"], "b": ["a", "c"], "c": ["b"]}
+    >>> penalty = laplacian(neighbors, ["a", "b", "c"])
+    >>> assert np.array_equal(penalty.sum(axis=1), np.zeros(3))
+    >>> assert np.linalg.matrix_rank(penalty) == 2
+
+    ```
+    """
     lookup = {label: index for index, label in enumerate(labels)}
     penalty = np.zeros((len(labels), len(labels)), dtype=float)
     for label, adjacent in neighbors.items():
@@ -150,7 +254,45 @@ def _natural_low_rank(
 
 
 def mrf(codes: ArrayLike, *, penalty: ArrayLike, k: int) -> Smooth:
-    """Construct a full- or low-rank MRF basis from integer region codes."""
+    """Construct a full- or low-rank Markov-random-field smooth.
+
+    The full basis is a one-hot encoding of region codes. A smaller ``k`` uses
+    the natural low-rank parameterization of the supplied graph penalty, which
+    is useful when the number of regions is large.
+
+    Parameters
+    ----------
+    codes
+        Zero-based integer region codes for the observed values.
+    penalty
+        Square graph penalty aligned with the region-code ordering.
+    k
+        Basis dimension. Use ``-1`` or the number of regions for the full basis,
+        or a smaller positive value for a low-rank basis.
+
+    Returns
+    -------
+    smooth :
+        An MRF smooth whose basis evaluates integer region codes.
+
+    Raises
+    ------
+    ValueError
+        If ``k`` exceeds the number of regions.
+
+    Examples
+    --------
+    ```pycon
+    >>> import numpy as np
+    >>> from smoothcon import laplacian, mrf
+    >>> neighbors = {"a": ["b"], "b": ["a", "c"], "c": ["b"]}
+    >>> penalty = laplacian(neighbors, ["a", "b", "c"])
+    >>> smooth = mrf(np.array([0, 1, 2, 1]), penalty=penalty, k=-1)
+    >>> assert smooth.basis(np.array([0, 2])).shape == (2, 3)
+    >>> assert smooth.rank == 2
+
+    ```
+    """
     codes_array = np.asarray(codes, dtype=int).reshape(-1)
     penalty_array = np.asarray(penalty, dtype=float)
     n_regions = penalty_array.shape[0]

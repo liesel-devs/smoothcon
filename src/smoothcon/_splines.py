@@ -18,7 +18,45 @@ ArrayLike = jax.typing.ArrayLike
 def equidistant_knots(
     x: ArrayLike, n_param: int, order: int = 3, eps: float = 0.01
 ) -> Array:
-    """Construct an extended equidistant knot sequence."""
+    """Construct an extended equidistant knot sequence for a B-spline basis.
+
+    The returned sequence contains ``n_param + order + 1`` knots and therefore
+    defines ``n_param`` basis functions of polynomial degree ``order``. Its
+    interior range extends the data range slightly to avoid endpoint issues.
+
+    Parameters
+    ----------
+    x
+        Values whose minimum and maximum define the data range.
+    n_param
+        Number of basis functions to support.
+    order
+        Polynomial degree of the B-spline basis.
+    eps
+        Relative amount by which to extend the data range before adding the
+        exterior knots.
+
+    Returns
+    -------
+    knots :
+        Increasing extended knot sequence.
+
+    Raises
+    ------
+    ValueError
+        If ``order`` is negative or ``n_param`` is smaller than ``order``.
+
+    Examples
+    --------
+    ```pycon
+    >>> import jax.numpy as jnp
+    >>> from smoothcon import equidistant_knots
+    >>> knots = equidistant_knots(jnp.array([0.0, 1.0]), 5, order=3)
+    >>> assert knots.shape == (9,)
+    >>> assert bool(jnp.all(jnp.diff(knots) > 0.0))
+
+    ```
+    """
     if order < 0:
         raise ValueError(f"Invalid {order=}.")
     if n_param < order:
@@ -93,7 +131,48 @@ def basis_matrix(
     outer_ok: bool = False,
     derivative: int = 0,
 ) -> Array:
-    """Evaluate a B-spline basis or derivative matrix."""
+    """Evaluate a B-spline basis or one of its derivatives.
+
+    Rows correspond to values in ``x`` and columns to the B-spline basis
+    functions defined by the knots. Knots are sorted before evaluation.
+
+    Parameters
+    ----------
+    x
+        Values at which to evaluate the basis.
+    knots
+        Extended knot sequence.
+    order
+        Polynomial degree of the B-spline basis.
+    outer_ok
+        Whether to allow values outside the interior knot range.
+    derivative
+        Derivative order to evaluate. Orders above ``order`` return zeros.
+
+    Returns
+    -------
+    matrix :
+        Basis matrix with ``len(x)`` rows and
+        ``len(knots) - order - 1`` columns.
+
+    Raises
+    ------
+    ValueError
+        If an order is negative or values fall outside the interior knot range
+        while ``outer_ok`` is false.
+
+    Examples
+    --------
+    ```pycon
+    >>> import jax.numpy as jnp
+    >>> from smoothcon import basis_matrix, equidistant_knots
+    >>> x = jnp.linspace(0.0, 1.0, 6)
+    >>> knots = equidistant_knots(x, 5, order=3)
+    >>> matrix = basis_matrix(x, knots, order=3)
+    >>> assert matrix.shape == (6, 5)
+
+    ```
+    """
     if order < 0:
         raise ValueError(f"Invalid {order=}.")
     if derivative < 0:
@@ -121,7 +200,39 @@ def basis_matrix(
 
 
 def pspline_penalty(d: int, diff: int = 2) -> Array:
-    """Construct a coefficient-difference penalty."""
+    """Construct a P-spline coefficient-difference penalty.
+
+    The result is ``D.T @ D``, where ``D`` applies ``diff`` successive finite
+    differences to ``d`` coefficients.
+
+    Parameters
+    ----------
+    d
+        Number of coefficients.
+    diff
+        Difference order.
+
+    Returns
+    -------
+    penalty :
+        Square positive-semidefinite penalty matrix.
+
+    Raises
+    ------
+    ValueError
+        If ``diff`` is negative.
+
+    Examples
+    --------
+    ```pycon
+    >>> import numpy as np
+    >>> from smoothcon import pspline_penalty
+    >>> penalty = pspline_penalty(5, diff=2)
+    >>> assert penalty.shape == (5, 5)
+    >>> assert np.linalg.matrix_rank(np.asarray(penalty)) == 3
+
+    ```
+    """
     if diff < 0:
         raise ValueError(f"Invalid {diff=}.")
     differences = jnp.diff(jnp.eye(d), n=diff, axis=0)
