@@ -1,4 +1,4 @@
-# Smoothcon - Construct basis and penalty matrices in JAX 
+# Smoothcon - Construct basis and penalty matrices in JAX
 
 [![pre-commit](https://github.com/liesel-devs/smoothcon2/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/liesel-devs/smoothcon2/actions/workflows/pre-commit.yml) [![pytest](https://github.com/liesel-devs/smoothcon2/actions/workflows/pytest.yml/badge.svg)](https://github.com/liesel-devs/smoothcon2/actions/workflows/pytest.yml) [![doctest](https://github.com/liesel-devs/smoothcon2/actions/workflows/doctest.yml/badge.svg)](https://github.com/liesel-devs/smoothcon2/actions/workflows/doctest.yml)  [![coverage](https://raw.githubusercontent.com/liesel-devs/smoothcon2/refs/heads/main/tests/coverage.svg)](https://github.com/liesel-devs/smoothcon2/actions/workflows/pytest.yml)
 
@@ -56,6 +56,8 @@ uv run pytest
 uv run ruff check .
 uv run ty check
 uv run mypy
+uv run mkdocs serve
+uv run mkdocs build --strict
 ```
 
 Normal tests do not require R. See

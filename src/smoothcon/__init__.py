@@ -5,6 +5,7 @@
 
 Examples
 --------
+```python
 >>> import jax.numpy as jnp
 >>> import smoothcon
 >>> x = jnp.linspace(0.0, 1.0, 5)
@@ -13,6 +14,8 @@ Examples
 (5, 4)
 >>> smooth.penalty.shape
 (4, 4)
+
+```
 """
 
 from ._mrf import laplacian as laplacian
