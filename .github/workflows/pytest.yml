@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: read
+      contents: write
 
     strategy:
       matrix:
@@ -47,30 +47,8 @@ jobs:
         if: matrix.python-version == '3.13'
         run: uv build
 
-      - name: Upload coverage badge
-        if: matrix.python-version == '3.13' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: coverage-badge
-          path: tests/coverage.svg
-
-  coverage-badge:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: pytest
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v6.0.2
-
-      - uses: actions/download-artifact@v8.0.1
-        with:
-          name: coverage-badge
-          path: tests
-
-      - name: Update coverage branch
+      - name: Commit coverage badge
+        if: matrix.python-version == '3.13' && github.ref == 'refs/heads/main'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -78,4 +56,4 @@ jobs:
           if ! git diff --cached --quiet; then
             git commit -m "Update coverage badge"
           fi
-          git push --force origin HEAD:pytest-cov
+          git push
