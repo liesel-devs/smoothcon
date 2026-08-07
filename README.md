@@ -1,6 +1,6 @@
-# smoothcon
+# Smoothcon - Construct basis and penalty matrices in JAX 
 
-[![pre-commit](https://github.com/liesel-devs/smoothcon2/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/liesel-devs/smoothcon2/actions/workflows/pre-commit.yml) [![pytest](https://github.com/liesel-devs/smoothcon2/actions/workflows/pytest.yml/badge.svg)](https://github.com/liesel-devs/smoothcon2/actions/workflows/pytest.yml) [![doctest](https://github.com/liesel-devs/smoothcon2/actions/workflows/doctest.yml/badge.svg)](https://github.com/liesel-devs/smoothcon2/actions/workflows/doctest.yml)  [![coverage](https://raw.githubusercontent.com/liesel-devs/smoothcon2/pytest-cov/tests/coverage.svg)](https://github.com/liesel-devs/smoothcon2/actions/workflows/pytest.yml)
+[![pre-commit](https://github.com/liesel-devs/smoothcon2/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/liesel-devs/smoothcon2/actions/workflows/pre-commit.yml) [![pytest](https://github.com/liesel-devs/smoothcon2/actions/workflows/pytest.yml/badge.svg)](https://github.com/liesel-devs/smoothcon2/actions/workflows/pytest.yml) [![doctest](https://github.com/liesel-devs/smoothcon2/actions/workflows/doctest.yml/badge.svg)](https://github.com/liesel-devs/smoothcon2/actions/workflows/doctest.yml)  [![coverage](https://raw.githubusercontent.com/liesel-devs/smoothcon2/refs/heads/main/tests/coverage.svg)](https://github.com/liesel-devs/smoothcon2/actions/workflows/pytest.yml)
 
 `smoothcon` constructs JAX-native basis matrices and quadratic penalties for
 smooth terms. It is a standalone numerical library: arrays and construction
