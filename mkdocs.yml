@@ -1,7 +1,7 @@
 site_name: smoothcon
 
 theme:
-  name: readthedocs
+  name: material
 
 markdown_extensions:
   - pymdownx.arithmatex:
