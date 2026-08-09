@@ -34,6 +34,8 @@ plugins:
             show_root_heading: true
             show_signature_annotations: true
             show_source: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
             signature_crossrefs: true
 
 nav:

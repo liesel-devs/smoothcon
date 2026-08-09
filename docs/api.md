@@ -3,17 +3,25 @@
 Public signatures include types and defaults from the Python annotations. The
 constructors return immutable [`Smooth`](#smoothcon.Smooth) objects.
 
-## Smooth terms
+## Smooth class
 
 ::: smoothcon.Smooth
 
+### Smooth methods
+
 ::: smoothcon.Smooth.constrain
+    options:
+      heading_level: 4
 
 ::: smoothcon.Smooth.scale_penalty
+    options:
+      heading_level: 4
 
 ::: smoothcon.Smooth.diagonalize_penalty
+    options:
+      heading_level: 4
 
-## Univariate smooths
+## Univariate functions
 
 ::: smoothcon.pspline
 
@@ -25,13 +33,13 @@ constructors return immutable [`Smooth`](#smoothcon.Smooth) objects.
 
 ::: smoothcon.cyclic_cubic
 
-## Radial smooths
+## Radial functions
 
 ::: smoothcon.thin_plate
 
 ::: smoothcon.gaussian_process
 
-## Markov random fields
+## Markov random field functions
 
 ::: smoothcon.polygon_neighbors
 
@@ -41,7 +49,7 @@ constructors return immutable [`Smooth`](#smoothcon.Smooth) objects.
 
 ::: smoothcon.mrf
 
-## Low-level spline utilities
+## Low-level spline functions
 
 ::: smoothcon.equidistant_knots
 
