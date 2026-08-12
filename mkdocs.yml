@@ -2,7 +2,7 @@ site_name: smoothcon
 site_dir: site
 
 theme:
-  variant: classic
+  variant: modern
   features:
     - content.code.copy
   palette:
