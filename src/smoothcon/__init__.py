@@ -32,4 +32,4 @@ from ._univariate import cyclic_cubic as cyclic_cubic
 from ._univariate import cyclic_pspline as cyclic_pspline
 from ._univariate import pspline as pspline
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
