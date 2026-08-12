@@ -37,7 +37,7 @@ jobs:
       - uses: actions/configure-pages@v5
 
       - run: uv sync --locked --group dev
-      - run: uv run mkdocs build --strict --site-dir site
+      - run: uv run zensical build --clean --strict
 
       - uses: actions/upload-pages-artifact@v4
         with:

@@ -76,7 +76,7 @@ The [documentation](https://liesel-devs.github.io/smoothcon2/) includes the
 complete API reference and notes on deviations from mgcv. To inspect it locally:
 
 ```bash
-uv run mkdocs serve
+uv run zensical serve
 ```
 
 ## Development
@@ -87,7 +87,7 @@ uv run pytest
 uv run ruff check .
 uv run ty check
 uv run mypy
-uv run mkdocs build --strict
+uv run zensical build --clean --strict
 ```
 
 Normal tests do not require R. See
