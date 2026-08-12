@@ -12,7 +12,7 @@ ASSETS = Path(__file__).parent / "mgcv_reference" / "assets"
 def test_spline_primitives_are_public() -> None:
     x = jnp.linspace(0.0, 1.0, 13)
     knots = smoothcon.equidistant_knots(x, n_param=7, order=3)
-    basis = smoothcon.basis_matrix(x, knots, order=3)
+    basis = smoothcon.bspline_basis(x, knots, order=3)
     penalty = smoothcon.pspline_penalty(7, diff=2)
 
     assert basis.shape == (13, 7)

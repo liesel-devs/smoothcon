@@ -16,7 +16,7 @@ import numpy as np
 from ._smooth import Array, ArrayLike, Smooth
 
 
-def polygon_neighbors(
+def infer_neighbors_from_polygons(
     polygons: Mapping[str, ArrayLike],
 ) -> dict[str, list[str]]:
     """Find which named polygonal regions touch each other.
@@ -44,12 +44,12 @@ def polygon_neighbors(
     --------
     ```pycon
     >>> import numpy as np
-    >>> from smoothcon import polygon_neighbors
+    >>> from smoothcon import infer_neighbors_from_polygons
     >>> polygons = {
     ...     "left": np.array([[0, 0], [1, 0], [1, 1], [0, 1]]),
     ...     "right": np.array([[1, 0], [2, 0], [2, 1], [1, 1]]),
     ... }
-    >>> polygon_neighbors(polygons)
+    >>> infer_neighbors_from_polygons(polygons)
     {'left': ['right'], 'right': ['left']}
 
     ```
@@ -152,7 +152,7 @@ def normalize_neighbors(
     return normalized
 
 
-def laplacian(
+def build_mrf_penalty(
     neighbors: Mapping[str, Sequence[str]], labels: Sequence[str]
 ) -> np.ndarray:
     """Turn a region-neighbor mapping into a smoothing penalty.
@@ -185,9 +185,9 @@ def laplacian(
     Examples
     --------
     ```pycon
-    >>> from smoothcon import laplacian
+    >>> from smoothcon import build_mrf_penalty
     >>> neighbors = {"a": ["b"], "b": ["a", "c"], "c": ["b"]}
-    >>> penalty = laplacian(neighbors, ["a", "b", "c"])
+    >>> penalty = build_mrf_penalty(neighbors, ["a", "b", "c"])
     >>> penalty
     array([[ 1., -1.,  0.],
            [-1.,  2., -1.],
@@ -290,9 +290,9 @@ def mrf(codes: ArrayLike, *, penalty: ArrayLike, k: int) -> Smooth:
     --------
     ```pycon
     >>> import numpy as np
-    >>> from smoothcon import laplacian, mrf
+    >>> from smoothcon import build_mrf_penalty, mrf
     >>> neighbors = {"a": ["b"], "b": ["a", "c"], "c": ["b"]}
-    >>> penalty = laplacian(neighbors, ["a", "b", "c"])
+    >>> penalty = build_mrf_penalty(neighbors, ["a", "b", "c"])
     >>> smooth = mrf(np.array([0, 1, 2, 1]), penalty=penalty, k=-1)
     >>> smooth.basis(np.array([0, 2])).astype(int).tolist()
     [[1, 0, 0], [0, 0, 1]]

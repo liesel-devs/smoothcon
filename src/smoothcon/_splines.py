@@ -127,7 +127,7 @@ def _basis_vector_derivative(
     return values[(degree, derivative)]
 
 
-def basis_matrix(
+def bspline_basis(
     x: ArrayLike,
     knots: ArrayLike,
     order: int = 3,
@@ -170,10 +170,10 @@ def basis_matrix(
     ```pycon
     >>> import jax.numpy as jnp
     >>> import numpy as np
-    >>> from smoothcon import basis_matrix, equidistant_knots
+    >>> from smoothcon import bspline_basis, equidistant_knots
     >>> x = jnp.linspace(0.0, 1.0, 6)
     >>> knots = equidistant_knots(x, 5, order=3)
-    >>> matrix = basis_matrix(x, knots, order=3)
+    >>> matrix = bspline_basis(x, knots, order=3)
     >>> matrix.shape
     (6, 5)
     >>> np.round(np.asarray(matrix)[[0, 5]], 3)
@@ -263,33 +263,33 @@ def linear_extrapolation_basis(
     upper = knots_array[-degree - 1]
 
     interior_x = jnp.clip(x_array, lower, upper)
-    interior = basis_matrix(
+    interior = bspline_basis(
         interior_x,
         knots_array,
         order=degree,
         outer_ok=True,
         derivative=derivative,
     )
-    lower_value = basis_matrix(
+    lower_value = bspline_basis(
         jnp.asarray([lower]),
         knots_array,
         order=degree,
         outer_ok=True,
     )[0]
-    upper_value = basis_matrix(
+    upper_value = bspline_basis(
         jnp.asarray([upper]),
         knots_array,
         order=degree,
         outer_ok=True,
     )[0]
-    lower_slope = basis_matrix(
+    lower_slope = bspline_basis(
         jnp.asarray([lower]),
         knots_array,
         order=degree,
         outer_ok=True,
         derivative=1,
     )[0]
-    upper_slope = basis_matrix(
+    upper_slope = bspline_basis(
         jnp.asarray([upper]),
         knots_array,
         order=degree,
@@ -340,8 +340,8 @@ def cyclic_basis_matrix(x: ArrayLike, knots: ArrayLike, degree: int) -> Array:
     leading = lower - (upper - knots_array[-degree - 1 : -1])
     augmented = jnp.concatenate((leading, knots_array))
     wrap_from = knots_array[-degree - 1]
-    primary = basis_matrix(x_array, augmented, order=degree, outer_ok=True)
-    wrapped = basis_matrix(
+    primary = bspline_basis(x_array, augmented, order=degree, outer_ok=True)
+    wrapped = bspline_basis(
         x_array - upper + lower,
         augmented,
         order=degree,

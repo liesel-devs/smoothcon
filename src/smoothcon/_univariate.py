@@ -13,7 +13,7 @@ import numpy as np
 
 from ._smooth import Array, ArrayLike, Smooth
 from ._splines import (
-    basis_matrix,
+    bspline_basis,
     cyclic_basis_matrix,
     cyclic_difference_penalty,
     equidistant_knots,
@@ -150,7 +150,7 @@ def _derivative_penalty(knots: np.ndarray, degree: int, derivative: int) -> Arra
     for left, right in intervals:
         points = (right - left) * (nodes + 1.0) / 2.0 + left
         local_weights = weights * (right - left) / 2.0
-        derivatives = basis_matrix(
+        derivatives = bspline_basis(
             jnp.asarray(points),
             knot_array,
             order=degree,

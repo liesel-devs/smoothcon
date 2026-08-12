@@ -41,11 +41,11 @@ constructors return immutable [`Smooth`](#smoothcon.Smooth) objects.
 
 ## Markov random field functions
 
-::: smoothcon.polygon_neighbors
+::: smoothcon.infer_neighbors_from_polygons
 
 ::: smoothcon.normalize_neighbors
 
-::: smoothcon.laplacian
+::: smoothcon.build_mrf_penalty
 
 ::: smoothcon.mrf
 
@@ -53,6 +53,6 @@ constructors return immutable [`Smooth`](#smoothcon.Smooth) objects.
 
 ::: smoothcon.equidistant_knots
 
-::: smoothcon.basis_matrix
+::: smoothcon.bspline_basis
 
 ::: smoothcon.pspline_penalty

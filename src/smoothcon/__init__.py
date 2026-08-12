@@ -24,14 +24,14 @@ Examples
 ```
 """
 
-from ._mrf import laplacian as laplacian
+from ._mrf import build_mrf_penalty as build_mrf_penalty
+from ._mrf import infer_neighbors_from_polygons as infer_neighbors_from_polygons
 from ._mrf import mrf as mrf
 from ._mrf import normalize_neighbors as normalize_neighbors
-from ._mrf import polygon_neighbors as polygon_neighbors
 from ._radial import gaussian_process as gaussian_process
 from ._radial import thin_plate as thin_plate
 from ._smooth import Smooth as Smooth
-from ._splines import basis_matrix as basis_matrix
+from ._splines import bspline_basis as bspline_basis
 from ._splines import equidistant_knots as equidistant_knots
 from ._splines import pspline_penalty as pspline_penalty
 from ._univariate import bspline as bspline

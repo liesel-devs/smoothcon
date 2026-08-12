@@ -43,15 +43,15 @@ def test_low_rank_mrf_matches_mgcv() -> None:
         )
 
 
-def test_polygon_neighbors_construct_a_laplacian() -> None:
+def test_inferred_polygon_neighbors_build_an_mrf_penalty() -> None:
     polygons = {
         "a": np.array([[0, 0], [1, 0], [1, 1], [0, 1]]),
         "b": np.array([[1, 0], [2, 0], [2, 1], [1, 1]]),
         "c": np.array([[2, 0], [3, 0], [3, 1], [2, 1]]),
     }
-    neighbors = smoothcon.polygon_neighbors(polygons)
+    neighbors = smoothcon.infer_neighbors_from_polygons(polygons)
     normalized = smoothcon.normalize_neighbors(neighbors, ["a", "b", "c"])
     np.testing.assert_array_equal(
-        smoothcon.laplacian(normalized, ["a", "b", "c"]),
+        smoothcon.build_mrf_penalty(normalized, ["a", "b", "c"]),
         np.array([[1, -1, 0], [-1, 2, -1], [0, -1, 1]]),
     )
