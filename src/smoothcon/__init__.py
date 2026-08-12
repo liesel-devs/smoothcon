@@ -1,7 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Johannes Brachem
 
-"""JAX-native basis and penalty construction for smooth terms.
+"""Build spline and spatial smooths for JAX models.
+
+Each constructor returns a ``Smooth`` containing a callable basis and a
+penalty matrix. Evaluate the basis at observed or new values, then use the
+penalty to keep the fitted effect from becoming unnecessarily wiggly.
 
 Examples
 --------
@@ -10,8 +14,12 @@ Examples
 >>> import smoothcon
 >>> x = jnp.linspace(0.0, 1.0, 5)
 >>> smooth = smoothcon.pspline(x, k=4, degree=3, penalty_order=2)
->>> assert smooth.basis(x).shape == (5, 4)
->>> assert smooth.penalty.shape == (4, 4)
+>>> smooth.basis(x).shape
+(5, 4)
+>>> smooth.penalty.shape
+(4, 4)
+>>> smooth.rank
+2
 
 ```
 """

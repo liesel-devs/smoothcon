@@ -1,5 +1,7 @@
 site_name: smoothcon
 site_dir: site
+watch:
+  - src/smoothcon
 
 theme:
   variant: modern

@@ -6,7 +6,7 @@
 # R/smooth.r and src/tprs.c.
 # Python/JAX adaptation modified 2026-07-24.
 
-"""Thin-plate and Gaussian-process smooth constructors."""
+"""Build smooths from distances between input locations."""
 
 import hashlib
 import math
@@ -165,12 +165,12 @@ def thin_plate(
     shrinkage: bool = False,
     remove_null_space: bool = False,
 ) -> Smooth:
-    """Construct a low-rank thin-plate regression spline.
+    """Create a smooth that can bend in one or more dimensions.
 
-    Thin-plate splines provide an isotropic smooth without choosing knot axes.
-    This low-rank construction follows Wood (2003) and retains a polynomial
-    null space unless it is shrunk or removed. Its function space follows the
-    corresponding mgcv construction, but basis coordinates need not match.
+    A thin-plate spline penalizes bending equally in every direction, so there
+    is no need to choose separate knot axes. This smaller, low-rank version
+    follows Wood (2003). Constant and low-order polynomial patterns remain
+    unpenalized unless they are shrunk or removed.
 
     Parameters
     ----------
@@ -216,8 +216,12 @@ def thin_plate(
     >>> from smoothcon import thin_plate
     >>> x = jnp.linspace(0.0, 1.0, 10)
     >>> smooth = thin_plate(x, k=6, penalty_order=2)
-    >>> assert smooth.basis(x).shape == (10, 6)
-    >>> assert smooth.rank == 4
+    >>> smooth.basis(x).shape
+    (10, 6)
+    >>> smooth.penalty.shape
+    (6, 6)
+    >>> smooth.rank
+    4
 
     ```
     """
@@ -342,12 +346,11 @@ def gaussian_process(
     power: float,
     knots: ArrayLike | None = None,
 ) -> Smooth:
-    """Construct a low-rank fixed-range Gaussian-process smooth.
+    """Create a smooth in which nearby inputs tend to have similar effects.
 
-    The basis is a deterministic low-rank approximation of a stationary
-    covariance kernel, augmented by a constant or linear trend. This follows
-    mgcv's fixed-range construction; basis coordinates may differ even when
-    the represented smooth is equivalent.
+    The selected kernel and range control how quickly that similarity fades
+    with distance. This deterministic, low-rank version includes a constant or
+    linear trend and follows mgcv's fixed-range construction.
 
     Parameters
     ----------
@@ -397,8 +400,12 @@ def gaussian_process(
     ...     range_=None,
     ...     power=1.5,
     ... )
-    >>> assert smooth.basis(x).shape == (10, 5)
-    >>> assert smooth.rank == 3
+    >>> smooth.basis(x).shape
+    (10, 5)
+    >>> smooth.penalty.shape
+    (5, 5)
+    >>> smooth.rank
+    3
 
     ```
     """

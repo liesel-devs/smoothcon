@@ -6,7 +6,7 @@
 # R/smooth.r and src/mgcv.c.
 # Python/JAX adaptation modified 2026-07-24.
 
-"""One-dimensional smooth constructors."""
+"""Build smooth curves for a single input variable."""
 
 import jax.numpy as jnp
 import numpy as np
@@ -56,11 +56,11 @@ def pspline(
     penalty_order: int,
     knots: ArrayLike | None = None,
 ) -> Smooth:
-    """Construct a B-spline basis with a coefficient-difference penalty.
+    """Create a smooth curve from local B-spline pieces.
 
-    This is the standard P-spline construction: a flexible local basis is
-    regularized by finite differences between neighboring coefficients. Basis
-    evaluation uses linear extrapolation beyond the interior knot range.
+    The penalty discourages neighboring coefficients from changing too
+    abruptly, which keeps the fitted curve smooth. Beyond the boundary knots,
+    the curve continues as a straight line.
 
     Parameters
     ----------
@@ -94,8 +94,12 @@ def pspline(
     >>> from smoothcon import pspline
     >>> x = jnp.linspace(0.0, 1.0, 10)
     >>> smooth = pspline(x, k=6, degree=3, penalty_order=2)
-    >>> assert smooth.basis(x).shape == (10, 6)
-    >>> assert smooth.rank == 4
+    >>> smooth.basis(x).shape
+    (10, 6)
+    >>> smooth.penalty.shape
+    (6, 6)
+    >>> smooth.rank
+    4
 
     ```
     """
@@ -169,11 +173,11 @@ def bspline(
     penalty_order: int,
     knots: ArrayLike | None = None,
 ) -> Smooth:
-    """Construct a B-spline with an integrated derivative penalty.
+    """Create a smooth curve by penalizing its derivatives directly.
 
-    Unlike a P-spline coefficient penalty, this construction numerically
-    integrates the squared derivative of each basis function. Evaluation uses
-    linear extrapolation beyond the interior knot range.
+    Instead of comparing neighboring coefficients, this construction penalizes
+    the total squared derivative of the fitted curve. Beyond the boundary
+    knots, the curve continues as a straight line.
 
     Parameters
     ----------
@@ -209,8 +213,12 @@ def bspline(
     >>> from smoothcon import bspline
     >>> x = jnp.linspace(0.0, 1.0, 10)
     >>> smooth = bspline(x, k=6, degree=3, penalty_order=2)
-    >>> assert smooth.basis(x).shape == (10, 6)
-    >>> assert smooth.penalty.shape == (6, 6)
+    >>> smooth.basis(x).shape
+    (10, 6)
+    >>> smooth.penalty.shape
+    (6, 6)
+    >>> smooth.rank
+    4
 
     ```
     """
@@ -232,11 +240,11 @@ def cyclic_pspline(
     penalty_order: int,
     knots: ArrayLike | None = None,
 ) -> Smooth:
-    """Construct a periodic B-spline with wrapped coefficient differences.
+    """Create a smooth B-spline curve whose two ends meet.
 
-    Values outside the boundary interval are wrapped into it. Both the basis
-    and the difference penalty join across the boundary, making this useful for
-    seasonal or angular covariates.
+    Values outside the boundary interval wrap around to the other side. Both
+    the curve and its coefficient penalty join across the boundary, making this
+    useful for seasons, times of day, angles, and other repeating inputs.
 
     Parameters
     ----------
@@ -270,7 +278,12 @@ def cyclic_pspline(
     >>> x = jnp.linspace(0.0, 1.0, 10)
     >>> smooth = cyclic_pspline(x, k=6, degree=3, penalty_order=2)
     >>> endpoints = smooth.basis(jnp.array([0.0, 1.0]))
-    >>> assert bool(jnp.allclose(endpoints[0], endpoints[1]))
+    >>> smooth.basis(x).shape
+    (10, 6)
+    >>> smooth.rank
+    5
+    >>> bool(jnp.allclose(endpoints[0], endpoints[1]))
+    True
 
     ```
     """
@@ -370,11 +383,11 @@ def cubic_regression(
     knots: ArrayLike | None = None,
     shrinkage: bool = False,
 ) -> Smooth:
-    """Construct a natural cardinal cubic regression spline.
+    """Create a smooth cubic curve whose coefficients are values at the knots.
 
-    Coefficients represent function values at the knots. The curvature penalty
-    has an unpenalized constant-and-linear null space unless ``shrinkage`` is
-    enabled, and evaluation extrapolates linearly beyond the boundary knots.
+    The penalty discourages the curve from bending too much. Constant and
+    straight-line patterns stay unpenalized unless ``shrinkage`` is enabled.
+    Beyond the boundary knots, the curve continues as a straight line.
 
     Parameters
     ----------
@@ -405,8 +418,12 @@ def cubic_regression(
     >>> from smoothcon import cubic_regression
     >>> x = jnp.linspace(0.0, 1.0, 12)
     >>> smooth = cubic_regression(x, k=6)
-    >>> assert smooth.basis(x).shape == (12, 6)
-    >>> assert smooth.rank == 4
+    >>> smooth.basis(x).shape
+    (12, 6)
+    >>> smooth.penalty.shape
+    (6, 6)
+    >>> smooth.rank
+    4
 
     ```
     """
@@ -478,11 +495,11 @@ def cyclic_cubic(
     k: int,
     knots: ArrayLike | None = None,
 ) -> Smooth:
-    """Construct a periodic cardinal cubic regression spline.
+    """Create a smooth cubic curve whose beginning and end meet.
 
-    The first and last knot describe the same periodic boundary, so ``k``
-    knots produce ``k - 1`` coefficients. Values outside that interval are
-    wrapped into it.
+    The first and last knot describe the same point in the repeating cycle, so
+    ``k`` knots produce ``k - 1`` coefficients. Values outside the knot range
+    wrap around to the other side.
 
     Parameters
     ----------
@@ -512,8 +529,13 @@ def cyclic_cubic(
     >>> from smoothcon import cyclic_cubic
     >>> x = jnp.linspace(0.0, 1.0, 12)
     >>> smooth = cyclic_cubic(x, k=6)
-    >>> assert smooth.basis(x).shape == (12, 5)
-    >>> assert smooth.rank == 4
+    >>> smooth.basis(x).shape
+    (12, 5)
+    >>> smooth.rank
+    4
+    >>> endpoints = smooth.basis(jnp.array([0.0, 1.0]))
+    >>> bool(jnp.allclose(endpoints[0], endpoints[1], atol=1e-7))
+    True
 
     ```
     """

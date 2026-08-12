@@ -5,7 +5,7 @@
 # 1b6a4c8374612da27e36420b4459e93acb183f2d, R/smooth.r.
 # Python/JAX adaptation modified 2026-07-24.
 
-"""Markov-random-field smooth construction."""
+"""Build smooths for data grouped into neighboring regions."""
 
 from collections.abc import Mapping, Sequence
 
@@ -19,11 +19,11 @@ from ._smooth import Array, ArrayLike, Smooth
 def polygon_neighbors(
     polygons: Mapping[str, ArrayLike],
 ) -> dict[str, list[str]]:
-    """Infer polygon neighbors from shared vertices.
+    """Find which named polygonal regions touch each other.
 
-    Two regions are adjacent when their coordinate arrays contain at least one
-    exactly equal vertex. Rows containing ``NaN`` are ignored, which permits
-    common multipart-polygon separators.
+    Two regions count as neighbors when their outlines share at least one
+    exactly equal coordinate. Rows containing ``NaN`` are ignored, so they can
+    be used to separate parts of a multipart polygon.
 
     Parameters
     ----------
@@ -49,8 +49,8 @@ def polygon_neighbors(
     ...     "left": np.array([[0, 0], [1, 0], [1, 1], [0, 1]]),
     ...     "right": np.array([[1, 0], [2, 0], [2, 1], [1, 1]]),
     ... }
-    >>> neighbors = polygon_neighbors(polygons)
-    >>> assert neighbors == {"left": ["right"], "right": ["left"]}
+    >>> polygon_neighbors(polygons)
+    {'left': ['right'], 'right': ['left']}
 
     ```
     """
@@ -79,11 +79,12 @@ def normalize_neighbors(
     labels: Sequence[str],
     index_labels: Sequence[str] | None = None,
 ) -> dict[str, list[str]]:
-    """Normalize label- or index-valued neighborhood definitions.
+    """Convert a region-neighbor mapping to one that uses names throughout.
 
-    Integer neighbors are zero-based indices into ``index_labels``. If that
-    ordering is omitted, sorted region labels are used. Label-valued neighbors
-    are preserved after validation.
+    Neighbors can be supplied as region names or zero-based positions. The
+    function checks that every region and neighbor is valid, then returns all
+    neighbors as names. Positions refer to ``index_labels``, or to sorted
+    ``labels`` if no order is supplied.
 
     Parameters
     ----------
@@ -111,8 +112,8 @@ def normalize_neighbors(
     ```pycon
     >>> from smoothcon import normalize_neighbors
     >>> raw = {"a": [1], "b": [0, 2], "c": [1]}
-    >>> neighbors = normalize_neighbors(raw, ["a", "b", "c"])
-    >>> assert neighbors["b"] == ["a", "c"]
+    >>> normalize_neighbors(raw, ["a", "b", "c"])
+    {'a': ['b'], 'b': ['a', 'c'], 'c': ['b']}
 
     ```
     """
@@ -154,7 +155,11 @@ def normalize_neighbors(
 def laplacian(
     neighbors: Mapping[str, Sequence[str]], labels: Sequence[str]
 ) -> np.ndarray:
-    """Construct a graph-Laplacian penalty from a neighborhood mapping.
+    """Turn a region-neighbor mapping into a smoothing penalty.
+
+    In an MRF smooth, this penalizes differences between neighboring regions,
+    encouraging neighboring regions to have similar effects. The resulting
+    matrix is also known as a graph Laplacian.
 
     The diagonal records each region's number of distinct neighbors and a
     neighboring pair receives ``-1`` off the diagonal. The order of ``labels``
@@ -180,12 +185,13 @@ def laplacian(
     Examples
     --------
     ```pycon
-    >>> import numpy as np
     >>> from smoothcon import laplacian
     >>> neighbors = {"a": ["b"], "b": ["a", "c"], "c": ["b"]}
     >>> penalty = laplacian(neighbors, ["a", "b", "c"])
-    >>> assert np.array_equal(penalty.sum(axis=1), np.zeros(3))
-    >>> assert np.linalg.matrix_rank(penalty) == 2
+    >>> penalty
+    array([[ 1., -1.,  0.],
+           [-1.,  2., -1.],
+           [ 0., -1.,  1.]])
 
     ```
     """
@@ -254,11 +260,11 @@ def _natural_low_rank(
 
 
 def mrf(codes: ArrayLike, *, penalty: ArrayLike, k: int) -> Smooth:
-    """Construct a full- or low-rank Markov-random-field smooth.
+    """Create a smooth for values attached to neighboring regions.
 
-    The full basis is a one-hot encoding of region codes. A smaller ``k`` uses
-    the natural low-rank parameterization of the supplied graph penalty, which
-    is useful when the number of regions is large.
+    The penalty encourages neighboring regions to have similar effects. The
+    full basis gives each region its own column; a smaller ``k`` uses fewer
+    columns, which is useful when there are many regions.
 
     Parameters
     ----------
@@ -288,8 +294,10 @@ def mrf(codes: ArrayLike, *, penalty: ArrayLike, k: int) -> Smooth:
     >>> neighbors = {"a": ["b"], "b": ["a", "c"], "c": ["b"]}
     >>> penalty = laplacian(neighbors, ["a", "b", "c"])
     >>> smooth = mrf(np.array([0, 1, 2, 1]), penalty=penalty, k=-1)
-    >>> assert smooth.basis(np.array([0, 2])).shape == (2, 3)
-    >>> assert smooth.rank == 2
+    >>> smooth.basis(np.array([0, 2])).astype(int).tolist()
+    [[1, 0, 0], [0, 0, 1]]
+    >>> smooth.rank
+    2
 
     ```
     """

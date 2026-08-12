@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Johannes Brachem
 
-"""The public numerical representation of a smooth term."""
+"""Store and transform a smooth's basis and penalty."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -16,12 +16,11 @@ ArrayLike = jax.typing.ArrayLike
 
 @dataclass(frozen=True)
 class Smooth:
-    """Represent a smooth term by a basis evaluator and quadratic penalty.
+    """Hold the two pieces needed to use a smooth in a model.
 
-    A ``Smooth`` separates construction from evaluation: call ``basis`` at new
-    covariate values and use ``penalty`` to regularize the resulting
-    coefficients. Instances are immutable, and each transformation returns a
-    new instance.
+    Call ``basis`` to turn input values into model columns. Use ``penalty`` to
+    discourage unnecessarily wiggly coefficient patterns. A ``Smooth`` never
+    changes in place; each transformation returns a new one.
 
     Parameters
     ----------
@@ -42,9 +41,12 @@ class Smooth:
     >>> from smoothcon import pspline
     >>> x = jnp.linspace(0.0, 1.0, 8)
     >>> smooth = pspline(x, k=5, degree=3, penalty_order=2)
-    >>> assert smooth.basis(x).shape == (8, 5)
-    >>> assert smooth.penalty.shape == (5, 5)
-    >>> assert smooth.rank == 3
+    >>> smooth.basis(x).shape
+    (8, 5)
+    >>> smooth.penalty.shape
+    (5, 5)
+    >>> smooth.rank
+    3
 
     ```
     """
@@ -70,12 +72,12 @@ class Smooth:
         *,
         values: ArrayLike | None = None,
     ) -> "Smooth":
-        """Remove coefficient directions subject to a linear constraint.
+        """Remove patterns that the smooth should not be allowed to represent.
 
-        Built-in constraints are ``"sumzero_coef"`` for coefficient centering,
-        ``"sumzero_term"`` for centering the evaluated term, and
-        ``"constant_and_linear"`` for removing constant and linear trends. A
-        matrix specifies the general constraint ``A @ coefficients == 0``.
+        ``"sumzero_coef"`` makes the coefficients add to zero,
+        ``"sumzero_term"`` makes the fitted values at ``values`` add to zero,
+        and ``"constant_and_linear"`` removes constant and linear trends. A
+        matrix can describe any other rule as ``A @ coefficients == 0``.
 
         Parameters
         ----------
@@ -111,7 +113,10 @@ class Smooth:
         >>> x = jnp.linspace(0.0, 1.0, 8)
         >>> smooth = pspline(x, k=5, degree=3, penalty_order=2)
         >>> constrained = smooth.constrain("sumzero_coef")
-        >>> assert constrained.basis(x).shape == (8, 4)
+        >>> smooth.basis(x).shape
+        (8, 5)
+        >>> constrained.basis(x).shape
+        (8, 4)
 
         ```
         """
@@ -148,11 +153,11 @@ class Smooth:
         return self._reparameterize(transform)
 
     def scale_penalty(self, *, values: ArrayLike) -> "Smooth":
-        """Scale the penalty relative to the evaluated basis.
+        """Put the penalty on a scale that matches the evaluated basis.
 
         The penalty is multiplied by ``||B||_inf**2 / ||K||_1``. This makes its
-        scale less dependent on the raw basis parameterization while leaving
-        the basis itself unchanged.
+        strength less dependent on how the basis happens to be parameterized.
+        The basis itself stays unchanged.
 
         Parameters
         ----------
@@ -177,8 +182,12 @@ class Smooth:
         >>> x = jnp.linspace(0.0, 1.0, 8)
         >>> smooth = pspline(x, k=5, degree=3, penalty_order=2)
         >>> scaled = smooth.scale_penalty(values=x)
-        >>> assert scaled.basis(x).shape == smooth.basis(x).shape
-        >>> assert bool(jnp.all(jnp.isfinite(scaled.penalty)))
+        >>> scaled.basis(x).shape
+        (8, 5)
+        >>> scaled.penalty.shape
+        (5, 5)
+        >>> bool(jnp.all(jnp.isfinite(scaled.penalty)))
+        True
 
         ```
         """
@@ -196,11 +205,11 @@ class Smooth:
         )
 
     def diagonalize_penalty(self) -> "Smooth":
-        """Reparameterize the penalty to ones followed by zeros.
+        """Rewrite the smooth so its penalty is diagonal and made of ones and zeros.
 
-        Penalized eigendirections are scaled to unit penalty and the complete
-        null space is retained. Eigenvector signs, and coordinates within tied
-        eigenspaces, are not unique.
+        Penalized directions receive a one; unpenalized directions receive a
+        zero. The represented smooth stays the same, although the basis columns
+        can change sign or rotate when penalty values are tied.
 
         Returns
         -------
@@ -220,8 +229,8 @@ class Smooth:
         >>> x = jnp.linspace(0.0, 1.0, 8)
         >>> smooth = pspline(x, k=5, degree=3, penalty_order=2)
         >>> diagonal = smooth.diagonalize_penalty()
-        >>> expected = jnp.array([1.0, 1.0, 1.0, 0.0, 0.0])
-        >>> assert bool(jnp.allclose(jnp.diag(diagonal.penalty), expected))
+        >>> jnp.diag(diagonal.penalty).astype(int).tolist()
+        [1, 1, 1, 0, 0]
 
         ```
         """

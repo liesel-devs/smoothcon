@@ -6,7 +6,7 @@
 # 1b6a4c8374612da27e36420b4459e93acb183f2d, R/smooth.r.
 # Python/JAX adaptation modified 2026-07-24.
 
-"""JAX B-spline primitives."""
+"""Build and evaluate the B-spline pieces used by smooth constructors."""
 
 import jax
 import jax.numpy as jnp
@@ -18,11 +18,11 @@ ArrayLike = jax.typing.ArrayLike
 def equidistant_knots(
     x: ArrayLike, n_param: int, order: int = 3, eps: float = 0.01
 ) -> Array:
-    """Construct an extended equidistant knot sequence for a B-spline basis.
+    """Create evenly spaced knots for a B-spline basis.
 
-    The returned sequence contains ``n_param + order + 1`` knots and therefore
-    defines ``n_param`` basis functions of polynomial degree ``order``. Its
-    interior range extends the data range slightly to avoid endpoint issues.
+    The sequence extends slightly beyond the data at both ends. It contains
+    ``n_param + order + 1`` knots, which define ``n_param`` basis functions of
+    polynomial degree ``order``.
 
     Parameters
     ----------
@@ -52,8 +52,12 @@ def equidistant_knots(
     >>> import jax.numpy as jnp
     >>> from smoothcon import equidistant_knots
     >>> knots = equidistant_knots(jnp.array([0.0, 1.0]), 5, order=3)
-    >>> assert knots.shape == (9,)
-    >>> assert bool(jnp.all(jnp.diff(knots) > 0.0))
+    >>> knots.shape
+    (9,)
+    >>> round(float(knots[0]), 3)
+    -1.52
+    >>> round(float(knots[-1]), 3)
+    2.52
 
     ```
     """
@@ -131,10 +135,10 @@ def basis_matrix(
     outer_ok: bool = False,
     derivative: int = 0,
 ) -> Array:
-    """Evaluate a B-spline basis or one of its derivatives.
+    """Calculate B-spline basis values, or their derivatives, at given points.
 
-    Rows correspond to values in ``x`` and columns to the B-spline basis
-    functions defined by the knots. Knots are sorted before evaluation.
+    Each input value produces one row; each B-spline piece produces one column.
+    The knots are sorted before use.
 
     Parameters
     ----------
@@ -165,11 +169,16 @@ def basis_matrix(
     --------
     ```pycon
     >>> import jax.numpy as jnp
+    >>> import numpy as np
     >>> from smoothcon import basis_matrix, equidistant_knots
     >>> x = jnp.linspace(0.0, 1.0, 6)
     >>> knots = equidistant_knots(x, 5, order=3)
     >>> matrix = basis_matrix(x, knots, order=3)
-    >>> assert matrix.shape == (6, 5)
+    >>> matrix.shape
+    (6, 5)
+    >>> np.round(np.asarray(matrix)[[0, 5]], 3)
+    array([[0.162, 0.667, 0.172, 0.   , 0.   ],
+           [0.   , 0.   , 0.172, 0.667, 0.162]], dtype=float32)
 
     ```
     """
@@ -200,10 +209,11 @@ def basis_matrix(
 
 
 def pspline_penalty(d: int, diff: int = 2) -> Array:
-    """Construct a P-spline coefficient-difference penalty.
+    """Create a penalty for changes between neighboring spline coefficients.
 
-    The result is ``D.T @ D``, where ``D`` applies ``diff`` successive finite
-    differences to ``d`` coefficients.
+    ``diff=1`` penalizes jumps between coefficients; ``diff=2`` penalizes
+    changes in those jumps. The result is ``D.T @ D``, where ``D`` applies the
+    requested differences to ``d`` coefficients.
 
     Parameters
     ----------
@@ -228,8 +238,12 @@ def pspline_penalty(d: int, diff: int = 2) -> Array:
     >>> import numpy as np
     >>> from smoothcon import pspline_penalty
     >>> penalty = pspline_penalty(5, diff=2)
-    >>> assert penalty.shape == (5, 5)
-    >>> assert np.linalg.matrix_rank(np.asarray(penalty)) == 3
+    >>> np.asarray(penalty, dtype=int)
+    array([[ 1, -2,  1,  0,  0],
+           [-2,  5, -4,  1,  0],
+           [ 1, -4,  6, -4,  1],
+           [ 0,  1, -4,  5, -2],
+           [ 0,  0,  1, -2,  1]])
 
     ```
     """
@@ -242,7 +256,7 @@ def pspline_penalty(d: int, diff: int = 2) -> Array:
 def linear_extrapolation_basis(
     x: ArrayLike, knots: ArrayLike, degree: int, derivative: int = 0
 ) -> Array:
-    """Evaluate a B-spline with mgcv's linear boundary extrapolation."""
+    """Evaluate a B-spline and continue it linearly beyond its boundaries."""
     x_array = jnp.atleast_1d(jnp.asarray(x))
     knots_array = jnp.asarray(knots, dtype=x_array.dtype)
     lower = knots_array[degree]
@@ -301,7 +315,7 @@ def linear_extrapolation_basis(
 
 
 def wrap_periodic(x: ArrayLike, lower: ArrayLike, upper: ArrayLike) -> Array:
-    """Wrap points into a closed interval following mgcv's ``cwrap`` rules."""
+    """Move values back into an interval by wrapping around its boundaries."""
     x_array = jnp.asarray(x)
     lower_array = jnp.asarray(lower, dtype=x_array.dtype)
     upper_array = jnp.asarray(upper, dtype=x_array.dtype)
@@ -316,7 +330,7 @@ def wrap_periodic(x: ArrayLike, lower: ArrayLike, upper: ArrayLike) -> Array:
 
 
 def cyclic_basis_matrix(x: ArrayLike, knots: ArrayLike, degree: int) -> Array:
-    """Evaluate mgcv's cyclic B-spline construction."""
+    """Calculate a B-spline basis whose two ends join smoothly."""
     x_array = jnp.atleast_1d(jnp.asarray(x))
     knots_array = jnp.sort(jnp.asarray(knots, dtype=x_array.dtype))
     lower = knots_array[0]
@@ -337,7 +351,7 @@ def cyclic_basis_matrix(x: ArrayLike, knots: ArrayLike, degree: int) -> Array:
 
 
 def cyclic_difference_penalty(d: int, diff: int) -> Array:
-    """Construct mgcv's wrapped coefficient-difference penalty."""
+    """Penalize coefficient changes across a periodic boundary."""
     if diff < 0 or diff > d - 1:
         raise ValueError("Penalty order is incompatible with the basis dimension.")
     extended = jnp.diff(jnp.eye(d + diff), n=diff, axis=0)
