@@ -1,6 +1,6 @@
 [project]
 name = "smoothcon"
-version = "0.1.0"
+dynamic = ["version"]
 description = "JAX-native basis and penalty construction for smooth terms"
 readme = "README.md"
 requires-python = ">=3.13,<3.15"
@@ -51,3 +51,6 @@ scripts_are_modules = true
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/smoothcon/__init__.py"
