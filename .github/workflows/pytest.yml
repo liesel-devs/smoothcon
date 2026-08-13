@@ -43,6 +43,13 @@ jobs:
         if: matrix.python-version == '3.13'
         run: uv run genbadge coverage -i coverage.xml -o tests/coverage.svg
 
+      - name: Fix coverage badge
+        if: matrix.python-version == '3.13'
+        run: |
+          if ! uv run pre-commit run end-of-file-fixer --files tests/coverage.svg; then
+            uv run pre-commit run end-of-file-fixer --files tests/coverage.svg
+          fi
+
       - name: Build package
         if: matrix.python-version == '3.13'
         run: uv build
