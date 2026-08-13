@@ -4,6 +4,17 @@
 smooth terms. Arrays and construction parameters go in, and an immutable
 `Smooth` object comes out.
 
+## Relationship to mgcv
+
+Much of `smoothcon`'s numerical implementation is a Python/JAX adaptation of
+algorithms from Simon N. Wood's GPL-licensed R package
+[`mgcv`](https://cran.r-project.org/package=mgcv). Development and regression
+testing are pinned to mgcv 1.9-4.
+
+`smoothcon` is licensed under `GPL-3.0-or-later`. See the
+[third-party notices](https://github.com/liesel-devs/smoothcon2/blob/main/THIRD_PARTY_NOTICES.md)
+for detailed source provenance, copyright notices, and academic citations.
+
 ## Installation
 
 ```bash
