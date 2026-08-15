@@ -43,7 +43,7 @@ def test_transformed_basis_remains_jittable_and_differentiable() -> None:
         smoothcon.pspline(x, k=9, degree=3, penalty_order=2)
         .constrain("constant_and_linear", values=x)
         .scale_penalty(values=x)
-        .diagonalize_penalty()
+        .diagonalize_penalty(values=x)
     )
 
     np.testing.assert_allclose(

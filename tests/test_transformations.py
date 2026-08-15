@@ -73,7 +73,7 @@ def test_penalty_scaling_normalizes_the_current_smooth() -> None:
     np.testing.assert_array_equal(scaled.basis(x), smooth.basis(x))
 
 
-def test_penalty_diagonalization_preserves_rank_and_null_space() -> None:
+def test_penalty_diagonalization_balances_the_null_space() -> None:
     x = jnp.linspace(-1.0, 2.0, 40)
     smooth = (
         smoothcon.pspline(x, k=9, degree=3, penalty_order=2)
@@ -81,12 +81,16 @@ def test_penalty_diagonalization_preserves_rank_and_null_space() -> None:
         .scale_penalty(values=x)
     )
 
-    diagonal = smooth.diagonalize_penalty()
+    diagonal = smooth.diagonalize_penalty(values=x)
+    design = diagonal.basis(x)
+    penalized_norm = jnp.mean(jnp.sum(design[:, : smooth.rank] ** 2, axis=0))
+    null_norms = jnp.sum(design[:, smooth.rank :] ** 2, axis=0)
 
     np.testing.assert_allclose(
         diagonal.penalty,
         jnp.diag(jnp.r_[jnp.ones(7), jnp.zeros(1)]),
         atol=1e-6,
     )
+    np.testing.assert_allclose(null_norms, penalized_norm, rtol=2e-6)
     assert diagonal.rank == smooth.rank == 7
-    assert diagonal.basis(x).shape == smooth.basis(x).shape
+    assert design.shape == smooth.basis(x).shape

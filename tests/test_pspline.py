@@ -43,6 +43,40 @@ def test_pspline_matches_mgcv() -> None:
         )
 
 
+def test_transformed_pspline_matches_mgcv() -> None:
+    with np.load(ASSETS / "ps.npz") as asset, jax.enable_x64(True):
+        x = jnp.asarray(asset["x"][:, 0])
+        smooth = (
+            smoothcon.pspline(x, k=9, degree=3, penalty_order=2)
+            .scale_penalty(values=x)
+            .constrain("sumzero_term", values=x)
+            .diagonalize_penalty(values=x)
+        )
+        basis = np.asarray(smooth.basis(x))
+        new_basis = np.asarray(smooth.basis(jnp.asarray(asset["new_x"][:, 0])))
+        expected_basis = asset["transformed_basis"]
+        expected_new_basis = asset["transformed_new_basis"]
+
+        np.testing.assert_allclose(
+            basis @ basis.T,
+            expected_basis @ expected_basis.T,
+            rtol=1e-8,
+            atol=1e-9,
+        )
+        np.testing.assert_allclose(
+            new_basis @ basis.T,
+            expected_new_basis @ expected_basis.T,
+            rtol=1e-8,
+            atol=1e-9,
+        )
+        np.testing.assert_allclose(
+            smooth.penalty,
+            asset["transformed_penalty"],
+            rtol=1e-9,
+            atol=1e-10,
+        )
+
+
 def test_bspline_matches_mgcv() -> None:
     with np.load(ASSETS / "bs.npz") as asset, jax.enable_x64(True):
         x = asset["x"][:, 0]

@@ -1,8 +1,10 @@
 # Deviations from mgcv
 
 `smoothcon` regression-tests raw basis and penalty constructions against
-committed assets generated with mgcv 1.9-4. Some internal coordinates differ
-deliberately.
+committed assets generated with mgcv 1.9-4 at commit
+`1b6a4c8374612da27e36420b4459e93acb183f2d`. Some internal coordinates differ
+deliberately. The complete scale, sum-to-zero constraint, diagonalization, and
+prediction sequence is additionally oracle-tested for P-splines only.
 
 ## Transformations
 
@@ -22,8 +24,12 @@ For an exclusively nonlinear P-spline, first remove constant and linear
 trends, then scale the resulting component, then diagonalize if desired.
 
 Diagonalization scales penalized eigendirections to unit penalty and retains
-the full null space. Eigenvector signs and tied eigenspaces can differ from
-mgcv without changing the represented quadratic form.
+the full null space. It requires the setup values and follows
+`mgcv::nat.param(type=2, unit.fnorm=FALSE)` by scaling null-space design columns
+to the average squared norm of the penalized columns. Eigenvector signs and
+tied eigenspaces can differ from mgcv without changing the represented
+quadratic form or this normalization. Post-transformation agreement with mgcv
+is currently asserted only for the P-spline sequence described above.
 
 ## Smooth families
 
@@ -44,4 +50,6 @@ mgcv without changing the represented quadratic form.
 ## Precision and oracle tests
 
 Normal tests do not require R or mgcv. Oracle comparisons enable JAX 64-bit
-mode locally; runtime precision follows the user's JAX configuration.
+mode locally and compare transformed basis Gram matrices so arbitrary signs
+and rotations do not become part of the compatibility promise. Runtime
+precision follows the user's JAX configuration.

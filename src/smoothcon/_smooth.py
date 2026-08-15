@@ -63,7 +63,7 @@ class Smooth:
         def evaluate(values: ArrayLike) -> Array:
             return basis(values) @ transform
 
-        rank = int(np.linalg.matrix_rank(np.asarray(penalty)))
+        rank = min(self.rank, penalty.shape[-1])
         return Smooth(evaluate, penalty, rank, self.knots)
 
     def constrain(
@@ -204,12 +204,20 @@ class Smooth:
             self.knots,
         )
 
-    def diagonalize_penalty(self) -> "Smooth":
+    def diagonalize_penalty(self, *, values: ArrayLike) -> "Smooth":
         """Rewrite the smooth so its penalty is diagonal and made of ones and zeros.
 
         Penalized directions receive a one; unpenalized directions receive a
-        zero. The represented smooth stays the same, although the basis columns
-        can change sign or rotate when penalty values are tied.
+        zero. Unpenalized directions are scaled to the average squared norm of
+        the penalized design columns, following ``mgcv::nat.param(type=2)``.
+        The represented smooth stays the same, although the basis columns can
+        change sign or rotate when penalty values are tied.
+
+        Parameters
+        ----------
+        values
+            Covariate values used to balance unpenalized and penalized design
+            columns.
 
         Returns
         -------
@@ -228,7 +236,7 @@ class Smooth:
         >>> from smoothcon import pspline
         >>> x = jnp.linspace(0.0, 1.0, 8)
         >>> smooth = pspline(x, k=5, degree=3, penalty_order=2)
-        >>> diagonal = smooth.diagonalize_penalty()
+        >>> diagonal = smooth.diagonalize_penalty(values=x)
         >>> jnp.diag(diagonal.penalty).astype(int).tolist()
         [1, 1, 1, 0, 0]
 
@@ -245,14 +253,29 @@ class Smooth:
         ).squeeze(axis=0)
         eigenvectors = eigenvectors * jnp.where(pivot_values < 0.0, -1.0, 1.0)
         penalized = jnp.arange(eigenvalues.shape[0]) < self.rank
-        safe_eigenvalues = jnp.where(penalized, eigenvalues, 1.0)
-        if not bool(jnp.all(safe_eigenvalues > 0.0)):
+        penalty_scale = jnp.max(jnp.abs(eigenvalues))
+        tolerance = jnp.sqrt(jnp.finfo(eigenvalues.dtype).eps) * penalty_scale
+        penalized_eigenvalues = eigenvalues[: self.rank]
+        if bool(jnp.any(penalized_eigenvalues < -tolerance)):
             raise ValueError("Penalty must be positive semidefinite.")
-        transform = eigenvectors * jnp.where(
+        safe_eigenvalues = jnp.where(penalized, jnp.abs(eigenvalues), 1.0)
+        if not bool(jnp.all(safe_eigenvalues[: self.rank] > 0.0)):
+            raise ValueError("Penalized directions must have nonzero eigenvalues.")
+        scales = jnp.where(
             penalized,
             1.0 / jnp.sqrt(safe_eigenvalues),
             1.0,
         )
+        transform = eigenvectors * scales
+        if 0 < self.rank < eigenvalues.shape[0]:
+            design = self.basis(values) @ transform
+            column_norms = jnp.sum(design**2, axis=0)
+            average_penalized_norm = jnp.mean(column_norms[: self.rank])
+            null_scales = jnp.sqrt(
+                average_penalized_norm / column_norms[self.rank :]
+            )
+            scales = scales.at[self.rank :].set(null_scales)
+            transform = eigenvectors * scales
         basis = self.basis
 
         def evaluate(values: ArrayLike) -> Array:

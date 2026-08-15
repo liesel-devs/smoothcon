@@ -1,8 +1,9 @@
 # mgcv reference assets
 
-The `.npz` files in `assets/` are generated from raw, unconstrained, unscaled,
-and non-diagonalized mgcv smooths. Normal test runs only read these files and
-do not require R or mgcv.
+The `.npz` files in `assets/` contain raw, unconstrained, unscaled, and
+non-diagonalized mgcv smooths. The P-spline asset additionally contains the
+fully scaled, sum-to-zero constrained, and diagonalized design and penalty.
+Normal test runs only read these files and do not require R or mgcv.
 
 To regenerate them from the checked-out mgcv source:
 

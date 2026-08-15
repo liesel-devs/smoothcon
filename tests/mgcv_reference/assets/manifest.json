@@ -327,7 +327,7 @@
     "ps": {
       "nullity": 2,
       "rank": 7,
-      "sha256": "e256515b8fa76dc3227909fa7bc41227088a946fd21045a056b21873f3ebcd46",
+      "sha256": "46e8182b31ea8266bfa36cb261e2e8fa6de9933b7458adcb5d94a26b37c96c99",
       "shapes": {
         "basis": [
           34,
@@ -344,6 +344,18 @@
         "penalty": [
           9,
           9
+        ],
+        "transformed_basis": [
+          34,
+          8
+        ],
+        "transformed_new_basis": [
+          8,
+          8
+        ],
+        "transformed_penalty": [
+          8,
+          8
         ],
         "x": [
           34,

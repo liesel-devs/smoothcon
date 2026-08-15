@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Johannes Brachem
 #
-# Generate raw (unconstrained, unscaled, non-diagonalized) mgcv oracle matrices.
+# Generate mgcv oracle matrices.
 # The adjacent generate.py driver installs the requested mgcv source tree into an
 # isolated library, invokes this script, and converts these CSV intermediates to NPZ.
 
@@ -26,7 +26,14 @@ write_matrix <- function(value, path) {
   )
 }
 
-write_case <- function(name, specification, data, newdata, knots = NULL) {
+write_case <- function(
+  name,
+  specification,
+  data,
+  newdata,
+  knots = NULL,
+  include_transformed = FALSE
+) {
   smooth <- smoothCon(
     specification,
     data = data,
@@ -42,6 +49,28 @@ write_case <- function(name, specification, data, newdata, knots = NULL) {
   write_matrix(smooth$X, file.path(directory, "basis.csv"))
   write_matrix(smooth$S[[1]], file.path(directory, "penalty.csv"))
   write_matrix(PredictMat(smooth, newdata), file.path(directory, "new_basis.csv"))
+  if (include_transformed) {
+    transformed <- smoothCon(
+      specification,
+      data = data,
+      knots = knots,
+      absorb.cons = TRUE,
+      diagonal.penalty = TRUE,
+      scale.penalty = TRUE
+    )[[1]]
+    write_matrix(
+      transformed$X,
+      file.path(directory, "transformed_basis.csv")
+    )
+    write_matrix(
+      transformed$S[[1]],
+      file.path(directory, "transformed_penalty.csv")
+    )
+    write_matrix(
+      PredictMat(transformed, newdata),
+      file.path(directory, "transformed_new_basis.csv")
+    )
+  }
   writeLines(
     c(
       paste("rank", smooth$rank),
@@ -56,7 +85,13 @@ new_x <- c(-2.4, -1.8, -1.1, -0.05, 0.8, 1.75, 2.2, 2.8)
 data_1d <- data.frame(x = x)
 new_1d <- data.frame(x = new_x)
 
-write_case("ps", s(x, bs = "ps", k = 9, m = c(2, 2)), data_1d, new_1d)
+write_case(
+  "ps",
+  s(x, bs = "ps", k = 9, m = c(2, 2)),
+  data_1d,
+  new_1d,
+  include_transformed = TRUE
+)
 write_case("bs", s(x, bs = "bs", k = 9, m = c(3, 2)), data_1d, new_1d)
 write_case("cp", s(x, bs = "cp", k = 9, m = c(2, 2)), data_1d, new_1d)
 write_case("cr", s(x, bs = "cr", k = 9), data_1d, new_1d)

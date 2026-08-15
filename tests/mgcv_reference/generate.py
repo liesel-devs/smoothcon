@@ -83,15 +83,16 @@ def main() -> None:
                 "penalty": _matrix(directory / "penalty.csv"),
                 "new_basis": _matrix(directory / "new_basis.csv"),
             }
+            for name in (
+                "transformed_basis",
+                "transformed_penalty",
+                "transformed_new_basis",
+            ):
+                path = directory / f"{name}.csv"
+                if path.exists():
+                    arrays[name] = _matrix(path)
             target = output / f"{directory.name}.npz"
-            np.savez_compressed(
-                target,
-                x=arrays["x"],
-                new_x=arrays["new_x"],
-                basis=arrays["basis"],
-                penalty=arrays["penalty"],
-                new_basis=arrays["new_basis"],
-            )
+            np.savez_compressed(target, **arrays)  # type: ignore[arg-type]
             cases[directory.name] = {
                 **_metadata(directory / "metadata.txt"),
                 "shapes": {key: list(value.shape) for key, value in arrays.items()},

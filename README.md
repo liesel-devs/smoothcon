@@ -62,7 +62,7 @@ Transformations return new `Smooth` objects and can be composed explicitly:
 nonlinear = (
     smooth.constrain("constant_and_linear", values=x)
     .scale_penalty(values=x)
-    .diagonalize_penalty()
+    .diagonalize_penalty(values=x)
 )
 ```
 
