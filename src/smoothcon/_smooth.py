@@ -271,9 +271,7 @@ class Smooth:
             design = self.basis(values) @ transform
             column_norms = jnp.sum(design**2, axis=0)
             average_penalized_norm = jnp.mean(column_norms[: self.rank])
-            null_scales = jnp.sqrt(
-                average_penalized_norm / column_norms[self.rank :]
-            )
+            null_scales = jnp.sqrt(average_penalized_norm / column_norms[self.rank :])
             scales = scales.at[self.rank :].set(null_scales)
             transform = eigenvectors * scales
         basis = self.basis

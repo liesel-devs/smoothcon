@@ -92,7 +92,7 @@ def main() -> None:
                 if path.exists():
                     arrays[name] = _matrix(path)
             target = output / f"{directory.name}.npz"
-            np.savez_compressed(target, **arrays)  # type: ignore[arg-type]
+            np.savez_compressed(target, **arrays)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             cases[directory.name] = {
                 **_metadata(directory / "metadata.txt"),
                 "shapes": {key: list(value.shape) for key, value in arrays.items()},
