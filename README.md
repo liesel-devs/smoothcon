@@ -72,7 +72,7 @@ constant-and-linear trend removal, and arbitrary matrices `A` representing
 
 ## Documentation
 
-The [documentation](https://liesel-devs.github.io/smoothcon2/) includes the
+The [documentation](https://liesel-devs.github.io/smoothcon/) includes the
 complete API reference and notes on deviations from mgcv. To inspect it locally:
 
 ```bash
