@@ -87,29 +87,12 @@ def test_diagonalized_geometry_matches_float64_reference(case: str, x64: bool) -
 
 @X64_MODES
 @pytest.mark.parametrize("case", CASES)
-def test_raw_rank_is_resolved_by_the_stored_penalty(case: str, x64: bool) -> None:
+def test_raw_rank_is_the_float64_rank_in_both_modes(case: str, x64: bool) -> None:
     with jax.enable_x64(x64):
-        raw, reference, _ = CASES[case]()
-        stored = raw.penalty
-        values = np.asarray(jnp.linalg.eigh(stored)[0], float)[::-1][: raw.rank]
-        expected = np.linalg.eigvalsh(reference)[::-1][: raw.rank]
+        raw, _, _ = CASES[case]()
 
-        assert stored.dtype == jnp.asarray(1.0).dtype
-        assert raw.rank <= SETUP_RANKS[case]
-        if x64:
-            assert raw.rank == SETUP_RANKS[case]
-        # The coefficient prior samples with 1 / sqrt of these eigenvalues.
-        assert np.all(values > 0.0)
-        np.testing.assert_allclose(values, expected, rtol=0.5)
-
-
-def test_float32_storage_lowers_the_raw_rank_of_ill_conditioned_penalties() -> None:
-    with jax.enable_x64(False):
-        raw, _, values = _cr100()
-        diagonal = raw.diagonalize_penalty(values=jnp.asarray(values))
-
-    assert raw.rank < SETUP_RANKS["cr100"]
-    assert diagonal.rank == SETUP_RANKS["cr100"]
+    assert raw.penalty.dtype == (jnp.float64 if x64 else jnp.float32)
+    assert raw.rank == SETUP_RANKS[case]
 
 
 @pytest.mark.parametrize(
@@ -273,7 +256,7 @@ def test_term_constraint_uses_a_float64_basis(build) -> None:
 
 
 @X64_MODES
-def test_shrinkage_rank_is_full_in_float64_and_after_diagonalization(
+def test_shrinkage_rank_is_full_in_both_modes(
     x64: bool,
 ) -> None:
     x = np.linspace(0.0, 1.0, 400)
@@ -281,9 +264,7 @@ def test_shrinkage_rank_is_full_in_float64_and_after_diagonalization(
         smooth = smoothcon.cubic_regression(x, k=30, shrinkage=True)
         diagonal = smooth.diagonalize_penalty(values=jnp.asarray(x))
 
-    assert diagonal.rank == 30
-    # Float32 can't resolve the shrunk directions of a 30-knot smooth.
-    assert smooth.rank == (30 if x64 else 29)
+    assert smooth.rank == diagonal.rank == 30
 
 
 @X64_MODES

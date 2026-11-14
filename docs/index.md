@@ -41,10 +41,11 @@ the coefficient penalty, and `smooth.rank` records its numerical rank. The
 basis can be evaluated inside JAX transformations such as `jax.jit`.
 
 Constructors and transformations do their setup in NumPy float64, whatever
-JAX's x64 mode is. `basis` and `penalty` use JAX's default precision. Without
-x64, an ill-conditioned dense penalty can report a lower `rank` than its float64
-setup, because float32 can't resolve its smallest directions;
-`smooth.diagonalize_penalty` keeps all of them.
+JAX's x64 mode is, and `rank` is computed there. `basis` and `penalty` use
+JAX's default precision. Without x64, an ill-conditioned penalty stored in
+float32 can't resolve its smallest directions, so code that computes with it
+in float32 should cap the rank. `smooth.diagonalize_penalty` avoids this: its
+zero-one penalty is exact in float32.
 
 ## Smooth families
 

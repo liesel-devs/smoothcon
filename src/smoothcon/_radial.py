@@ -186,10 +186,7 @@ def thin_plate(
         Optional center locations, as a vector in one dimension or a matrix in
         multiple dimensions. ``None`` uses unique covariate locations.
     shrinkage
-        Whether to add small penalties to the polynomial null space. Without
-        JAX's x64 mode and with a large ``k``, these penalties can fall below
-        float32 resolution and drop out of ``rank``; ``diagonalize_penalty``
-        keeps them.
+        Whether to add small penalties to the polynomial null space.
     remove_null_space
         Whether to drop the polynomial null-space columns and center the
         remaining basis over ``x``.
