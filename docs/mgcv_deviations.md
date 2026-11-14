@@ -63,4 +63,7 @@ ill-conditioned spline penalties can get a lower rank here. For example,
 `pspline(k=200, penalty_order=4)` has rank 195, not 196. Gaussian-process
 penalties are the retained covariance spectrum and count every retained
 direction. A dense penalty stored in float32 only counts eigenvalues above
-`10 * eps32` times the largest, the directions float32 can resolve.
+`10 * eps32` times the largest, the directions float32 can resolve. This
+can drop the shrunk directions of a large shrinkage smooth, for example one of
+the 30 directions of `cubic_regression(k=30, shrinkage=True)`;
+`diagonalize_penalty` keeps them.

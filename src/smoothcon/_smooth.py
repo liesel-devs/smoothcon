@@ -4,7 +4,7 @@
 """Store and transform a smooth's basis and penalty."""
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import jax
 import jax.numpy as jnp
@@ -56,11 +56,12 @@ class Smooth:
     penalty
         Square matrix defining the coefficient penalty.
     rank
-        Number of penalized directions that ``penalty`` resolves. For a dense
-        penalty stored in float32, directions whose eigenvalue is below
-        ``10 * eps32`` times the largest one are not counted, so an
-        ill-conditioned smooth can report a lower rank than its float64 setup.
-        ``diagonalize_penalty`` keeps every direction of the float64 setup.
+        Number of penalized directions that ``penalty`` resolves. When
+        smoothcon builds a dense penalty that is stored in float32, directions
+        whose eigenvalue is below ``10 * eps32`` times the largest one are not
+        counted, so an ill-conditioned smooth can report a lower rank than its
+        float64 setup. ``diagonalize_penalty`` keeps every direction of the
+        float64 setup. A rank passed to ``Smooth`` directly is kept as given.
     knots
         Knot or center locations retained by the constructor, when applicable.
 
@@ -85,10 +86,16 @@ class Smooth:
     penalty: Array
     rank: int
     knots: Array | None = None
-    _setup: _Setup | None = field(default=None, repr=False, compare=False)
 
-    def __post_init__(self) -> None:
-        if self._setup is None:
+    @property
+    def _state(self) -> _Setup:
+        """Return the float64 setup record.
+
+        It is kept outside the dataclass fields, so ``dataclasses.replace``
+        and direct construction start from the public fields.
+        """
+        setup = self.__dict__.get("_setup")
+        if setup is None:
             setup = _Setup(
                 np.asarray(self.penalty, dtype=np.float64),
                 int(self.rank),
@@ -96,16 +103,16 @@ class Smooth:
                 None,
             )
             object.__setattr__(self, "_setup", setup)
-
-    @property
-    def _state(self) -> _Setup:
-        assert self._setup is not None
-        return self._setup
+        return setup
 
     def _design(self, values: ArrayLike) -> np.ndarray:
-        """Evaluate the basis at ``values`` with the float64 transform."""
+        """Evaluate the basis at ``values`` in float64."""
         setup = self._state
-        design = np.asarray(setup.root(values), dtype=np.float64)
+        array = np.asarray(values)
+        if array.dtype.kind == "f":
+            array = array.astype(np.float64)
+        with jax.enable_x64(True):
+            design = np.asarray(setup.root(array), dtype=np.float64)
         if setup.transform is not None:
             design = design @ setup.transform
         return design
@@ -113,13 +120,15 @@ class Smooth:
     def _reparameterize(self, transform: np.ndarray) -> "Smooth":
         setup = self._state
         penalty = _symmetric(transform.T @ setup.penalty @ transform)
-        rank = min(setup.rank, _setup_rank(penalty))
+        eigenvalues = np.linalg.eigvalsh(penalty)
+        rank = min(setup.rank, _rank_above(eigenvalues, _SETUP_RTOL))
         return _smooth_from_setup(
             setup.root,
             penalty,
             rank=rank,
             transform=_compose(setup.transform, transform),
             knots=self.knots,
+            eigenvalues=eigenvalues,
         )
 
     def constrain(
@@ -334,6 +343,19 @@ class Smooth:
         )
 
 
+class _LazyEigenvalues:
+    """Compute a symmetric matrix's float64 eigenvalues at most once."""
+
+    def __init__(self, matrix: np.ndarray, eigenvalues: np.ndarray | None) -> None:
+        self.matrix = matrix
+        self._eigenvalues = eigenvalues
+
+    def get(self) -> np.ndarray:
+        if self._eigenvalues is None:
+            self._eigenvalues = np.linalg.eigvalsh(_symmetric(self.matrix))
+        return self._eigenvalues
+
+
 def _smooth_from_setup(
     root: Callable[[ArrayLike], Array],
     penalty: np.ndarray,
@@ -341,15 +363,18 @@ def _smooth_from_setup(
     rank: int | None = None,
     transform: np.ndarray | None = None,
     knots: Array | None = None,
+    eigenvalues: np.ndarray | None = None,
 ) -> Smooth:
     """Build a smooth from float64 setup results.
 
     ``rank`` defaults to the float64 rank of ``penalty``. The returned
     ``penalty`` uses JAX's default precision, and the returned ``rank`` counts
-    only the directions that stored copy resolves.
+    only the directions that stored copy resolves. Pass the eigenvalues of
+    ``penalty`` when they are known, to skip recomputing them.
     """
     penalty = np.asarray(penalty, dtype=np.float64)
-    setup_rank = _setup_rank(penalty) if rank is None else int(rank)
+    lazy = _LazyEigenvalues(penalty, eigenvalues)
+    setup_rank = _rank_above(lazy.get(), _SETUP_RTOL) if rank is None else int(rank)
     stored = jnp.asarray(penalty)
     if transform is None:
         basis = root
@@ -359,13 +384,9 @@ def _smooth_from_setup(
         def basis(values: ArrayLike) -> Array:
             return root(values) @ transform_array
 
-    return Smooth(
-        basis,
-        stored,
-        _stored_rank(penalty, stored, setup_rank),
-        knots,
-        _Setup(penalty, setup_rank, root, transform),
-    )
+    smooth = Smooth(basis, stored, _stored_rank(lazy, stored, setup_rank), knots)
+    object.__setattr__(smooth, "_setup", _Setup(penalty, setup_rank, root, transform))
+    return smooth
 
 
 def _rank_above(eigenvalues: np.ndarray, rtol: float) -> int:
@@ -388,23 +409,23 @@ def _setup_rank(penalty: np.ndarray) -> int:
     return _rank_above(np.linalg.eigvalsh(_symmetric(penalty)), _SETUP_RTOL)
 
 
-def _stored_rank(penalty: np.ndarray, stored: Array, setup_rank: int) -> int:
+def _stored_rank(penalty: _LazyEigenvalues, stored: Array, setup_rank: int) -> int:
     """Cap ``setup_rank`` at the directions the stored penalty resolves.
 
     A diagonal penalty keeps its eigenvalues as entries, so it resolves every
     entry that stays positive. A dense penalty stored with ``eps`` coarser than
     float64 resolves eigenvalues above ``10 * eps`` times the largest, the same
-    rule as in float64 otherwise. Eigenvalues come from the float64 penalty.
+    rule as in float64 otherwise. Eigenvalues come from the float64 penalty,
+    ``penalty.matrix``.
     """
-    if _is_diagonal(penalty):
+    if _is_diagonal(penalty.matrix):
         entries = np.diag(np.asarray(stored, dtype=np.float64))
         return min(setup_rank, int(np.sum(entries > 0.0)))
     eps = float(np.finfo(stored.dtype).eps)
     if eps <= np.finfo(np.float64).eps:
         return setup_rank
     rtol = max(_SETUP_RTOL, _STORAGE_EPS_FACTOR * eps)
-    eigenvalues = np.linalg.eigvalsh(_symmetric(penalty))
-    return min(setup_rank, _rank_above(eigenvalues, rtol))
+    return min(setup_rank, _rank_above(penalty.get(), rtol))
 
 
 def _is_diagonal(matrix: np.ndarray) -> bool:
@@ -438,7 +459,6 @@ def _constraint_reparameterization(constraint: np.ndarray) -> np.ndarray:
     _, eigenvectors = np.linalg.eigh(constraint.T @ constraint)
     signs = np.sign(eigenvectors[0])
     eigenvectors = eigenvectors * np.where(signs == 0, 1.0, signs)
-    complement = eigenvectors[:, :-n_constraints].T
-    stacked = np.concatenate((constraint, complement), axis=0)
-    inverse = np.linalg.inv(stacked)
-    return inverse[:, n_constraints:]
+    # The complement's orthonormal columns span the constraint's null space, so
+    # they are the last columns of the inverse of ``[constraint; complement.T]``.
+    return eigenvectors[:, :-n_constraints]

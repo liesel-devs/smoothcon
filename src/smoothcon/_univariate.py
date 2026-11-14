@@ -393,6 +393,9 @@ def cubic_regression(
         Exact knot locations. ``None`` chooses quantiles of the unique values.
     shrinkage
         Whether to add small penalties to the two null-space directions.
+        Without JAX's x64 mode and with a large ``k``, these penalties can fall
+        below float32 resolution and drop out of ``rank``;
+        ``diagonalize_penalty`` keeps them.
 
     Returns
     -------

@@ -1,5 +1,6 @@
 """Setup precision: float64 geometry whatever JAX's x64 mode is."""
 
+import dataclasses
 from collections.abc import Callable
 
 import jax
@@ -217,3 +218,108 @@ def test_directly_constructed_smooth_keeps_its_rank_and_transforms() -> None:
     assert smooth.penalty is penalty
     assert diagonal.rank == 4
     np.testing.assert_array_equal(np.diag(diagonal.penalty), [1, 1, 1, 1, 0])
+
+
+def test_replace_rebuilds_the_float64_record() -> None:
+    x = jnp.linspace(0.0, 1.0, 40)
+    smooth = smoothcon.pspline(x, k=10, degree=3, penalty_order=2)
+
+    replaced = dataclasses.replace(smooth, penalty=jnp.eye(10), rank=10)
+    diagonal = replaced.diagonalize_penalty(values=x)
+    doubled = dataclasses.replace(smooth, basis=lambda v: 2.0 * smooth.basis(v))
+
+    assert diagonal.rank == 10
+    np.testing.assert_array_equal(np.diag(diagonal.penalty), np.ones(10))
+    np.testing.assert_allclose(
+        doubled.constrain("sumzero_coef").basis(x),
+        2.0 * smooth.constrain("sumzero_coef").basis(x),
+        rtol=1e-6,
+    )
+    assert [f.name for f in dataclasses.fields(smoothcon.Smooth)] == [
+        "basis",
+        "penalty",
+        "rank",
+        "knots",
+    ]
+
+
+def test_smooth_can_be_built_inside_jit() -> None:
+    @jax.jit
+    def build(penalty):
+        smooth = smoothcon.Smooth(jnp.asarray, penalty, 2)
+        return smooth.penalty
+
+    np.testing.assert_array_equal(build(jnp.eye(2)), jnp.eye(2))
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda x: smoothcon.thin_plate(x, k=40, penalty_order=2),
+        lambda x: smoothcon.pspline(x, k=80, degree=3, penalty_order=4),
+    ],
+    ids=["tp", "ps"],
+)
+def test_term_constraint_uses_a_float64_basis(build) -> None:
+    x = np.linspace(0.0, 1.0, 300)
+    with jax.enable_x64(False):
+        constrained = build(x).constrain("sumzero_term", values=x)
+
+    # The float64 setup design of the constrained smooth sums to zero up to
+    # float64 roundoff of an ill-conditioned basis, not float32 evaluation.
+    design = constrained._design(x)
+    column_sums = np.abs(np.sum(design, axis=0))
+    assert np.max(column_sums) < 1e-5 * np.max(np.abs(design))
+
+
+@X64_MODES
+def test_shrinkage_rank_is_full_in_float64_and_after_diagonalization(
+    x64: bool,
+) -> None:
+    x = np.linspace(0.0, 1.0, 400)
+    with jax.enable_x64(x64):
+        smooth = smoothcon.cubic_regression(x, k=30, shrinkage=True)
+        diagonal = smooth.diagonalize_penalty(values=jnp.asarray(x))
+
+    assert diagonal.rank == 30
+    # Float32 can't resolve the shrunk directions of a 30-knot smooth.
+    assert smooth.rank == (30 if x64 else 29)
+
+
+@X64_MODES
+def test_low_rank_mrf_keeps_its_rank_and_geometry(x64: bool) -> None:
+    penalty = _chain_penalty(300)
+    codes = np.arange(300)
+    with jax.enable_x64(x64):
+        smooth = smoothcon.mrf(codes, penalty=penalty, k=40)
+        diagonal = smooth.diagonalize_penalty(values=jnp.asarray(codes))
+        design = np.asarray(smooth.basis(jnp.asarray(codes)), float)
+        diagonal_design = np.asarray(diagonal.basis(jnp.asarray(codes)), float)
+    with jax.enable_x64(True):
+        reference = smoothcon.mrf(codes, penalty=penalty, k=40)
+        reference_design = np.asarray(reference.basis(jnp.asarray(codes)))
+
+    assert smooth.rank == diagonal.rank == 39
+    assert _relative_error(design, reference_design) < 1e-6
+    penalized = diagonal_design[:, :39]
+    expected = (
+        reference_design
+        @ np.linalg.pinv(np.asarray(reference.penalty))
+        @ reference_design.T
+    )
+    assert _relative_error(penalized @ penalized.T, expected) < 1e-4
+
+
+def test_directly_constructed_smooth_transforms_in_float64_with_x64_off() -> None:
+    penalty = _difference_penalty(80, 4)
+    x = np.linspace(0.0, 1.0, 400)
+    reference = smoothcon.pspline(x, k=80, degree=3, penalty_order=4)
+    with jax.enable_x64(False):
+        smooth = smoothcon.Smooth(reference.basis, jnp.asarray(penalty), 76)
+        diagonal = smooth.diagonalize_penalty(values=jnp.asarray(x))
+        penalized = np.asarray(diagonal.basis(jnp.asarray(x)), float)[:, :76]
+    basis = np.asarray(reference.basis(jnp.asarray(x)), float)
+    expected = basis @ _pseudo_inverse(penalty, 76) @ basis.T
+
+    assert smooth.rank == 76
+    assert _relative_error(penalized @ penalized.T, expected) < 1e-4
