@@ -39,6 +39,12 @@ penalty = smooth.penalty
 the coefficient penalty, `smooth.rank` records its numerical rank, and
 `smooth.knots` retains knot or center locations when applicable.
 
+Constructors and transformations do their setup in NumPy float64, whatever
+JAX's x64 mode is. `basis` and `penalty` use JAX's default precision. Without
+x64, an ill-conditioned dense penalty can report a lower `rank` than its float64
+setup, because float32 can't resolve its smallest directions;
+`smooth.diagonalize_penalty` keeps all of them.
+
 `Smooth.basis` supports `jax.jit` and finite first-order autodiff almost
 everywhere for continuous smooth families. Exact derivatives at nonsmooth knot
 or boundary locations and higher-order derivatives are not guaranteed. MRF

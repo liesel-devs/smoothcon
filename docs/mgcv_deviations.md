@@ -38,8 +38,7 @@ is currently asserted only for the P-spline sequence described above.
   quadrature.
 - Thin-plate and Gaussian-process bases use equivalent eigenspaces rather than
   mgcv's exact eigenvector coordinates.
-- Large radial eigenproblems use deterministic LOBPCG when appropriate, with
-  dense decomposition as the fallback.
+- Radial eigenproblems use a dense float64 decomposition.
 - More than 2,000 unique radial locations are reduced by a stable content hash;
   mgcv can select different locations.
 - Multidimensional custom radial knots are unsupported.
@@ -51,5 +50,17 @@ is currently asserted only for the P-spline sequence described above.
 
 Normal tests do not require R or mgcv. Oracle comparisons enable JAX 64-bit
 mode locally and compare transformed basis Gram matrices so arbitrary signs
-and rotations do not become part of the compatibility promise. Runtime
-precision follows the user's JAX configuration.
+and rotations do not become part of the compatibility promise.
+
+Setup runs in NumPy float64 whatever JAX's x64 mode is: penalties, their
+ranks, constraints, penalty scaling, diagonalization, and radial
+eigendecompositions. The returned basis and penalty use JAX's default
+precision, so evaluating a basis follows the user's JAX configuration.
+
+Ranks count eigenvalues above `eps**0.8` times the largest, in float64, for
+every smooth family. mgcv uses the mathematical rank for splines, so very
+ill-conditioned spline penalties can get a lower rank here. For example,
+`pspline(k=200, penalty_order=4)` has rank 195, not 196. Gaussian-process
+penalties are the retained covariance spectrum and count every retained
+direction. A dense penalty stored in float32 only counts eigenvalues above
+`10 * eps32` times the largest, the directions float32 can resolve.

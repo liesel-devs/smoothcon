@@ -13,7 +13,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from ._smooth import Array, ArrayLike, Smooth
+from ._smooth import Array, ArrayLike, Smooth, _setup_rank, _smooth_from_setup
 
 
 def infer_neighbors_from_polygons(
@@ -210,13 +210,6 @@ def build_mrf_penalty(
     return penalty
 
 
-def _rank(penalty: np.ndarray) -> int:
-    values = np.linalg.eigvalsh((penalty + penalty.T) / 2.0)
-    if not values.size or np.max(values) <= 0.0:
-        return 0
-    return int(np.sum(values > np.finfo(float).eps ** 0.8 * np.max(values)))
-
-
 def _natural_low_rank(
     codes: np.ndarray, penalty: np.ndarray, k: int
 ) -> tuple[np.ndarray, np.ndarray, int]:
@@ -239,7 +232,7 @@ def _natural_low_rank(
     values = values[order]
     transform = np.linalg.solve(triangular, vectors[:, order])
     natural_design = augmented @ transform
-    rank = _rank(penalty)
+    rank = _setup_rank(penalty)
 
     if rank:
         scale = 1.0 / np.sqrt(np.mean(natural_design[:, :rank] ** 2))
@@ -306,23 +299,12 @@ def mrf(codes: ArrayLike, *, penalty: ArrayLike, k: int) -> Smooth:
     n_regions = penalty_array.shape[0]
     if k > n_regions:
         raise ValueError("MRF basis dimension is larger than the number of regions.")
-    if k == -1 or k == n_regions:
-        transform = np.eye(n_regions)
-        output_penalty = penalty_array
-        rank = _rank(penalty_array)
-    else:
-        transform, output_penalty, rank = _natural_low_rank(
-            codes_array, penalty_array, k
-        )
-    transform_array = jnp.asarray(transform)
 
     def evaluate(values: ArrayLike) -> Array:
         integer_values = jnp.asarray(values, dtype=int).reshape(-1)
-        return jax.nn.one_hot(integer_values, n_regions) @ transform_array
+        return jax.nn.one_hot(integer_values, n_regions)
 
-    return Smooth(
-        evaluate,
-        jnp.asarray(output_penalty),
-        rank,
-        None,
-    )
+    if k == -1 or k == n_regions:
+        return _smooth_from_setup(evaluate, penalty_array)
+    transform, output_penalty, rank = _natural_low_rank(codes_array, penalty_array, k)
+    return _smooth_from_setup(evaluate, output_penalty, rank=rank, transform=transform)

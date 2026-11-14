@@ -40,6 +40,12 @@ penalty = smooth.penalty
 the coefficient penalty, and `smooth.rank` records its numerical rank. The
 basis can be evaluated inside JAX transformations such as `jax.jit`.
 
+Constructors and transformations do their setup in NumPy float64, whatever
+JAX's x64 mode is. `basis` and `penalty` use JAX's default precision. Without
+x64, an ill-conditioned dense penalty can report a lower `rank` than its float64
+setup, because float32 can't resolve its smallest directions;
+`smooth.diagonalize_penalty` keeps all of them.
+
 ## Smooth families
 
 - P-splines and integrated-derivative B-splines

@@ -11,14 +11,14 @@
 import jax.numpy as jnp
 import numpy as np
 
-from ._smooth import Array, ArrayLike, Smooth
+from ._smooth import Array, ArrayLike, Smooth, _smooth_from_setup
 from ._splines import (
-    bspline_basis,
+    _bspline_matrix_float64,
+    _difference_penalty,
     cyclic_basis_matrix,
     cyclic_difference_penalty,
     equidistant_knots,
     linear_extrapolation_basis,
-    pspline_penalty,
     wrap_periodic,
 )
 
@@ -80,7 +80,8 @@ def pspline(
     -------
     smooth :
         A smooth with ``k`` basis columns and penalty rank
-        ``k - penalty_order``.
+        ``k - penalty_order``. See ``Smooth`` for when ``rank`` is
+        lower.
 
     Raises
     ------
@@ -106,12 +107,12 @@ def pspline(
     if k <= degree - 1:
         raise ValueError("Basis dimension is too small for the B-spline degree.")
     knot_array = jnp.asarray(_pspline_knots(x, k, degree, knots))
-    penalty = pspline_penalty(k, penalty_order)
+    penalty = _difference_penalty(k, penalty_order)
 
     def evaluate(values: ArrayLike) -> Array:
         return linear_extrapolation_basis(jnp.ravel(values), knot_array, degree)
 
-    return Smooth(evaluate, penalty, k - penalty_order, knot_array)
+    return _smooth_from_setup(evaluate, penalty, knots=knot_array)
 
 
 def _bspline_knots(
@@ -137,7 +138,7 @@ def _bspline_knots(
     return _strict_knots(supplied, expected, "a B-spline")
 
 
-def _derivative_penalty(knots: np.ndarray, degree: int, derivative: int) -> Array:
+def _derivative_penalty(knots: np.ndarray, degree: int, derivative: int) -> np.ndarray:
     if derivative > degree:
         raise ValueError("Requested non-existent derivative in B-spline penalty.")
     lower = degree
@@ -146,20 +147,11 @@ def _derivative_penalty(knots: np.ndarray, degree: int, derivative: int) -> Arra
     quadrature_order = max(1, degree - derivative + 1)
     nodes, weights = np.polynomial.legendre.leggauss(quadrature_order)
     penalty = None
-    knot_array = jnp.asarray(knots)
     for left, right in intervals:
         points = (right - left) * (nodes + 1.0) / 2.0 + left
         local_weights = weights * (right - left) / 2.0
-        derivatives = bspline_basis(
-            jnp.asarray(points),
-            knot_array,
-            order=degree,
-            outer_ok=True,
-            derivative=derivative,
-        )
-        contribution = derivatives.T @ (
-            jnp.asarray(local_weights)[:, None] * derivatives
-        )
+        derivatives = _bspline_matrix_float64(points, knots, degree, derivative)
+        contribution = derivatives.T @ (local_weights[:, None] * derivatives)
         penalty = contribution if penalty is None else penalty + contribution
     assert penalty is not None
     return (penalty + penalty.T) / 2.0
@@ -198,7 +190,8 @@ def bspline(
     -------
     smooth :
         A smooth with ``k`` basis columns and penalty rank
-        ``k - penalty_order``.
+        ``k - penalty_order``. See ``Smooth`` for when ``rank`` is
+        lower.
 
     Raises
     ------
@@ -222,14 +215,14 @@ def bspline(
 
     ```
     """
-    knot_values = _bspline_knots(x, k, degree, knots)
+    knot_values = np.asarray(_bspline_knots(x, k, degree, knots), dtype=np.float64)
     knot_array = jnp.asarray(knot_values)
     penalty = _derivative_penalty(knot_values, degree, penalty_order)
 
     def evaluate(values: ArrayLike) -> Array:
         return linear_extrapolation_basis(jnp.ravel(values), knot_array, degree)
 
-    return Smooth(evaluate, penalty, k - penalty_order, knot_array)
+    return _smooth_from_setup(evaluate, penalty, knots=knot_array)
 
 
 def cyclic_pspline(
@@ -263,7 +256,8 @@ def cyclic_pspline(
     Returns
     -------
     smooth :
-        A periodic smooth with ``k`` basis columns and rank ``k - 1``.
+        A periodic smooth with ``k`` basis columns and rank ``k - 1``. See
+        ``Smooth`` for when ``rank`` is lower.
 
     Raises
     ------
@@ -304,7 +298,7 @@ def cyclic_pspline(
     def evaluate(values: ArrayLike) -> Array:
         return cyclic_basis_matrix(jnp.ravel(values), knot_array, degree)
 
-    return Smooth(evaluate, penalty, k - 1, knot_array)
+    return _smooth_from_setup(evaluate, penalty, knots=knot_array)
 
 
 def _cardinal_system(knots: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -367,13 +361,13 @@ def _natural_cubic_basis(x: Array, knots: Array, second_derivative_map: Array) -
     )
 
 
-def _shrink_penalty(penalty: np.ndarray, shrink: float, nullity: int) -> Array:
+def _shrink_penalty(penalty: np.ndarray, shrink: float, nullity: int) -> np.ndarray:
     eigenvalues, eigenvectors = np.linalg.eigh(penalty)
     base = eigenvalues[nullity]
     for offset in range(nullity):
         eigenvalues[nullity - offset - 1] = base * shrink ** (offset + 1)
     result = (eigenvectors * eigenvalues) @ eigenvectors.T
-    return jnp.asarray((result + result.T) / 2.0)
+    return (result + result.T) / 2.0
 
 
 def cubic_regression(
@@ -404,6 +398,7 @@ def cubic_regression(
     -------
     smooth :
         A natural cubic smooth with rank ``k - 2``, or ``k`` with shrinkage.
+        See ``Smooth`` for when ``rank`` is lower.
 
     Raises
     ------
@@ -437,14 +432,13 @@ def cubic_regression(
     second_map, penalty = _cardinal_system(knot_values)
     knot_array = jnp.asarray(knot_values)
     second_array = jnp.asarray(second_map)
-    penalty_array = (
-        _shrink_penalty(penalty, 0.1, nullity=2) if shrinkage else jnp.asarray(penalty)
-    )
+    if shrinkage:
+        penalty = _shrink_penalty(penalty, 0.1, nullity=2)
 
     def evaluate(values: ArrayLike) -> Array:
         return _natural_cubic_basis(jnp.asarray(values), knot_array, second_array)
 
-    return Smooth(evaluate, penalty_array, k if shrinkage else k - 2, knot_array)
+    return _smooth_from_setup(evaluate, penalty, knots=knot_array)
 
 
 def _cyclic_system(knots: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -514,7 +508,8 @@ def cyclic_cubic(
     Returns
     -------
     smooth :
-        A periodic cubic smooth with ``k - 1`` basis columns and rank ``k - 2``.
+        A periodic cubic smooth with ``k - 1`` basis columns and rank
+        ``k - 2``. See ``Smooth`` for when ``rank`` is lower.
 
     Raises
     ------
@@ -561,4 +556,4 @@ def cyclic_cubic(
     def evaluate(values: ArrayLike) -> Array:
         return _cyclic_cubic_basis(jnp.asarray(values), knot_array, second_array)
 
-    return Smooth(evaluate, jnp.asarray(penalty), k - 2, knot_array)
+    return _smooth_from_setup(evaluate, penalty, knots=knot_array)
