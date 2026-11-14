@@ -8,11 +8,17 @@
 
 """Build and evaluate the B-spline pieces used by smooth constructors."""
 
+from types import ModuleType
+from typing import Any
+
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 Array = jax.Array
 ArrayLike = jax.typing.ArrayLike
+XpArray = Any
+"""A JAX or NumPy array, matching the ``xp`` module it is computed with."""
 
 
 def equidistant_knots(
@@ -80,18 +86,19 @@ def equidistant_knots(
     return jnp.concatenate((left, internal, right))
 
 
-def _divide(numerator: Array, denominator: Array) -> Array:
-    safe_denominator = jnp.where(denominator == 0.0, 1.0, denominator)
-    return jnp.where(denominator == 0.0, 0.0, numerator / safe_denominator)
+def _divide(numerator: XpArray, denominator: XpArray, xp: ModuleType = jnp) -> XpArray:
+    safe_denominator = xp.where(denominator == 0.0, 1.0, denominator)
+    return xp.where(denominator == 0.0, 0.0, numerator / safe_denominator)
 
 
 def _basis_vector_derivative(
-    x: Array, knots: Array, degree: int, derivative: int
-) -> Array:
-    values: dict[tuple[int, int], Array] = {}
+    x: XpArray, knots: XpArray, degree: int, derivative: int, xp: ModuleType = jnp
+) -> XpArray:
+    """Evaluate B-splines along the last axis; ``x`` broadcasts against it."""
+    values: dict[tuple[int, int], XpArray] = {}
     values[(0, 0)] = ((x >= knots[:-1]) & (x < knots[1:])).astype(knots.dtype)
     for derivative_order in range(1, derivative + 1):
-        values[(0, derivative_order)] = jnp.zeros_like(values[(0, 0)])
+        values[(0, derivative_order)] = xp.zeros_like(values[(0, 0)])
 
     for current_degree in range(1, degree + 1):
         previous = values[(current_degree - 1, 0)]
@@ -103,28 +110,48 @@ def _basis_vector_derivative(
             knots[current_degree + 1 : current_degree + n_basis + 1]
             - knots[1 : n_basis + 1]
         )
-        left = _divide((x - knots[:n_basis]) * previous[:n_basis], left_denominator)
+        left = _divide(
+            (x - knots[:n_basis]) * previous[..., :n_basis], left_denominator, xp
+        )
         right = _divide(
             (knots[current_degree + 1 : current_degree + n_basis + 1] - x)
-            * previous[1 : n_basis + 1],
+            * previous[..., 1 : n_basis + 1],
             right_denominator,
+            xp,
         )
         values[(current_degree, 0)] = left + right
 
         for derivative_order in range(1, derivative + 1):
             previous_derivative = values[(current_degree - 1, derivative_order - 1)]
             left_derivative = _divide(
-                current_degree * previous_derivative[:n_basis], left_denominator
+                current_degree * previous_derivative[..., :n_basis],
+                left_denominator,
+                xp,
             )
             right_derivative = _divide(
-                current_degree * previous_derivative[1 : n_basis + 1],
+                current_degree * previous_derivative[..., 1 : n_basis + 1],
                 right_denominator,
+                xp,
             )
             values[(current_degree, derivative_order)] = (
                 left_derivative - right_derivative
             )
 
     return values[(degree, derivative)]
+
+
+def _bspline_matrix_float64(
+    x: np.ndarray, knots: np.ndarray, degree: int, derivative: int = 0
+) -> np.ndarray:
+    """Evaluate a B-spline basis or its derivative in NumPy float64.
+
+    Values outside the interior knot range are not checked.
+    """
+    x_array = np.asarray(x, dtype=np.float64).reshape(-1, 1)
+    knots_array = np.sort(np.asarray(knots, dtype=np.float64))
+    if derivative > degree:
+        return np.zeros((x_array.shape[0], knots_array.size - degree - 1))
+    return _basis_vector_derivative(x_array, knots_array, degree, derivative, xp=np)
 
 
 def bspline_basis(
@@ -247,9 +274,14 @@ def pspline_penalty(d: int, diff: int = 2) -> Array:
 
     ```
     """
+    return jnp.asarray(_difference_penalty(d, diff))
+
+
+def _difference_penalty(d: int, diff: int) -> np.ndarray:
+    """Return the float64 difference penalty behind ``pspline_penalty``."""
     if diff < 0:
         raise ValueError(f"Invalid {diff=}.")
-    differences = jnp.diff(jnp.eye(d), n=diff, axis=0)
+    differences = np.diff(np.eye(d), n=diff, axis=0)
     return differences.T @ differences
 
 
@@ -350,14 +382,14 @@ def cyclic_basis_matrix(x: ArrayLike, knots: ArrayLike, degree: int) -> Array:
     return primary + jnp.where((x_array > wrap_from)[:, None], wrapped, 0.0)
 
 
-def cyclic_difference_penalty(d: int, diff: int) -> Array:
-    """Penalize coefficient changes across a periodic boundary."""
+def cyclic_difference_penalty(d: int, diff: int) -> np.ndarray:
+    """Penalize coefficient changes across a periodic boundary, in float64."""
     if diff < 0 or diff > d - 1:
         raise ValueError("Penalty order is incompatible with the basis dimension.")
-    extended = jnp.diff(jnp.eye(d + diff), n=diff, axis=0)
+    extended = np.diff(np.eye(d + diff), n=diff, axis=0)
     if diff == 0:
         differences = extended
     else:
-        differences = extended[:, diff:]
-        differences = differences.at[:, -diff:].add(extended[:, :diff])
+        differences = extended[:, diff:].copy()
+        differences[:, -diff:] += extended[:, :diff]
     return differences.T @ differences

@@ -13,6 +13,25 @@ import numpy as np
 Array = jax.Array
 ArrayLike = jax.typing.ArrayLike
 
+_SETUP_RTOL = float(np.finfo(np.float64).eps ** 0.8)
+"""Relative eigenvalue cutoff for a penalty's rank in float64."""
+
+
+@dataclass(frozen=True)
+class _Setup:
+    """Float64 state that transformations build on.
+
+    ``penalty`` and ``rank`` describe the penalty in float64. ``root`` is the
+    basis function before any reparameterization, and ``transform`` is the
+    accumulated float64 reparameterization (``None`` for the identity), so
+    ``basis(values) == root(values) @ transform``.
+    """
+
+    penalty: np.ndarray
+    rank: int
+    root: Callable[[ArrayLike], Array]
+    transform: np.ndarray | None
+
 
 @dataclass(frozen=True)
 class Smooth:
@@ -22,6 +41,10 @@ class Smooth:
     discourage unnecessarily wiggly coefficient patterns. A ``Smooth`` never
     changes in place; each transformation returns a new one.
 
+    Constructors and transformations do their setup in NumPy float64, whatever
+    JAX's x64 mode is. ``basis`` and ``penalty`` then use JAX's default
+    precision, which is float32 unless x64 is enabled.
+
     Parameters
     ----------
     basis
@@ -30,7 +53,13 @@ class Smooth:
     penalty
         Square matrix defining the coefficient penalty.
     rank
-        Numerical rank of ``penalty``.
+        Numerical rank of the penalty, computed in float64 at setup: the
+        number of eigenvalues above ``eps64**0.8`` times the largest one. A
+        rank passed to ``Smooth`` directly is kept as given. For an
+        ill-conditioned penalty stored in float32, the stored copy can't
+        resolve its smallest directions; code that computes with that copy
+        in float32 should cap the rank accordingly, or use
+        ``diagonalize_penalty``, whose zero-one penalty float32 holds exactly.
     knots
         Knot or center locations retained by the constructor, when applicable.
 
@@ -56,15 +85,47 @@ class Smooth:
     rank: int
     knots: Array | None = None
 
-    def _reparameterize(self, transform: Array) -> "Smooth":
-        basis = self.basis
-        penalty = transform.T @ self.penalty @ transform
+    @property
+    def _state(self) -> _Setup:
+        """Return the float64 setup record.
 
-        def evaluate(values: ArrayLike) -> Array:
-            return basis(values) @ transform
+        It is kept outside the dataclass fields, so ``dataclasses.replace``
+        and direct construction start from the public fields.
+        """
+        setup = self.__dict__.get("_setup")
+        if setup is None:
+            setup = _Setup(
+                np.asarray(self.penalty, dtype=np.float64),
+                int(self.rank),
+                self.basis,
+                None,
+            )
+            object.__setattr__(self, "_setup", setup)
+        return setup
 
-        rank = min(self.rank, penalty.shape[-1])
-        return Smooth(evaluate, penalty, rank, self.knots)
+    def _design(self, values: ArrayLike) -> np.ndarray:
+        """Evaluate the basis at ``values`` in float64."""
+        setup = self._state
+        array = np.asarray(values)
+        if array.dtype.kind == "f":
+            array = array.astype(np.float64)
+        with jax.enable_x64(True):
+            design = np.asarray(setup.root(array), dtype=np.float64)
+        if setup.transform is not None:
+            design = design @ setup.transform
+        return design
+
+    def _reparameterize(self, transform: np.ndarray) -> "Smooth":
+        setup = self._state
+        penalty = _symmetric(transform.T @ setup.penalty @ transform)
+        rank = min(setup.rank, _setup_rank(penalty))
+        return _smooth_from_setup(
+            setup.root,
+            penalty,
+            rank=rank,
+            transform=_compose(setup.transform, transform),
+            knots=self.knots,
+        )
 
     def constrain(
         self,
@@ -91,6 +152,7 @@ class Smooth:
         -------
         smooth :
             A reparameterized smooth with one column removed per constraint.
+            Its rank drops when a constraint removes penalized directions.
 
         Raises
         ------
@@ -121,31 +183,30 @@ class Smooth:
         ```
         """
         if not isinstance(constraint, str):
-            matrix = jnp.asarray(constraint)
+            matrix = np.asarray(constraint, dtype=np.float64)
         else:
             if constraint == "sumzero_coef":
-                matrix = jnp.ones((1, self.penalty.shape[0]))
+                matrix = np.ones((1, self._state.penalty.shape[0]))
             elif constraint == "sumzero_term":
                 if values is None:
                     raise ValueError(
                         "'values' are required for a term sum-to-zero constraint."
                     )
-                matrix = jnp.sum(self.basis(values), axis=0, keepdims=True)
+                matrix = np.sum(self._design(values), axis=0, keepdims=True)
             elif constraint == "constant_and_linear":
                 if values is None:
                     raise ValueError(
                         "'values' are required to remove constant and linear trends."
                     )
-                values_array = jnp.asarray(values)
+                values_array = np.asarray(values, dtype=np.float64)
                 if values_array.ndim == 1:
                     values_array = values_array[:, None]
-                linear_basis = jnp.column_stack(
-                    (jnp.ones(values_array.shape[0]), values_array)
+                linear_basis = np.column_stack(
+                    (np.ones(values_array.shape[0]), values_array)
                 )
-                basis = self.basis(values)
-                matrix = jnp.linalg.solve(
+                matrix = np.linalg.solve(
                     linear_basis.T @ linear_basis,
-                    linear_basis.T @ basis,
+                    linear_basis.T @ self._design(values),
                 )
             else:
                 raise ValueError(f"Unknown constraint {constraint!r}.")
@@ -191,17 +252,19 @@ class Smooth:
 
         ```
         """
-        design_size = jnp.linalg.norm(self.basis(values), ord=jnp.inf) ** 2
-        penalty_size = jnp.linalg.norm(self.penalty, ord=1)
-        if not bool(jnp.isfinite(design_size)) or float(design_size) <= 0.0:
+        setup = self._state
+        design_size = np.linalg.norm(self._design(values), ord=np.inf) ** 2
+        penalty_size = np.linalg.norm(setup.penalty, ord=1)
+        if not np.isfinite(design_size) or design_size <= 0.0:
             raise ValueError("Cannot scale a penalty for a zero or non-finite basis.")
-        if not bool(jnp.isfinite(penalty_size)) or float(penalty_size) <= 0.0:
+        if not np.isfinite(penalty_size) or penalty_size <= 0.0:
             raise ValueError("Cannot scale a zero or non-finite penalty matrix.")
-        return Smooth(
-            self.basis,
-            self.penalty * design_size / penalty_size,
-            self.rank,
-            self.knots,
+        return _smooth_from_setup(
+            setup.root,
+            setup.penalty * (design_size / penalty_size),
+            rank=setup.rank,
+            transform=setup.transform,
+            knots=self.knots,
         )
 
     def diagonalize_penalty(self, *, values: ArrayLike) -> "Smooth":
@@ -212,6 +275,10 @@ class Smooth:
         the penalized design columns, following ``mgcv::nat.param(type=2)``.
         The represented smooth stays the same, although the basis columns can
         change sign or rotate when penalty values are tied.
+
+        The eigendecomposition runs in float64. The returned penalty holds only
+        zeros and ones, so float32 stores it exactly, and the basis carries
+        the scales.
 
         Parameters
         ----------
@@ -242,60 +309,112 @@ class Smooth:
 
         ```
         """
-        eigenvalues, eigenvectors = jnp.linalg.eigh(
-            (self.penalty + self.penalty.T) / 2.0
-        )
+        setup = self._state
+        rank = setup.rank
+        eigenvalues, eigenvectors = np.linalg.eigh(_symmetric(setup.penalty))
         eigenvalues = eigenvalues[::-1]
-        eigenvectors = eigenvectors[:, ::-1]
-        pivots = jnp.argmax(jnp.abs(eigenvectors), axis=0)
-        pivot_values = jnp.take_along_axis(
-            eigenvectors, pivots[None, :], axis=0
-        ).squeeze(axis=0)
-        eigenvectors = eigenvectors * jnp.where(pivot_values < 0.0, -1.0, 1.0)
-        penalized = jnp.arange(eigenvalues.shape[0]) < self.rank
-        penalty_scale = jnp.max(jnp.abs(eigenvalues))
-        tolerance = jnp.sqrt(jnp.finfo(eigenvalues.dtype).eps) * penalty_scale
-        penalized_eigenvalues = eigenvalues[: self.rank]
-        if bool(jnp.any(penalized_eigenvalues < -tolerance)):
+        eigenvectors = _canonical_signs(eigenvectors[:, ::-1])
+        dimension = eigenvalues.shape[0]
+        penalized = np.arange(dimension) < rank
+        tolerance = np.sqrt(np.finfo(np.float64).eps) * np.max(np.abs(eigenvalues))
+        if np.any(eigenvalues[:rank] < -tolerance):
             raise ValueError("Penalty must be positive semidefinite.")
-        safe_eigenvalues = jnp.where(penalized, jnp.abs(eigenvalues), 1.0)
-        if not bool(jnp.all(safe_eigenvalues[: self.rank] > 0.0)):
+        safe_eigenvalues = np.where(penalized, np.abs(eigenvalues), 1.0)
+        if not np.all(safe_eigenvalues[:rank] > 0.0):
             raise ValueError("Penalized directions must have nonzero eigenvalues.")
-        scales = jnp.where(
-            penalized,
-            1.0 / jnp.sqrt(safe_eigenvalues),
-            1.0,
-        )
+        scales = np.where(penalized, 1.0 / np.sqrt(safe_eigenvalues), 1.0)
         transform = eigenvectors * scales
-        if 0 < self.rank < eigenvalues.shape[0]:
-            design = self.basis(values) @ transform
-            column_norms = jnp.sum(design**2, axis=0)
-            average_penalized_norm = jnp.mean(column_norms[: self.rank])
-            null_scales = jnp.sqrt(average_penalized_norm / column_norms[self.rank :])
-            scales = scales.at[self.rank :].set(null_scales)
+        if 0 < rank < dimension:
+            design = self._design(values) @ transform
+            column_norms = np.sum(design**2, axis=0)
+            average_penalized_norm = np.mean(column_norms[:rank])
+            scales[rank:] = np.sqrt(average_penalized_norm / column_norms[rank:])
             transform = eigenvectors * scales
-        basis = self.basis
+        return _smooth_from_setup(
+            setup.root,
+            np.diag(penalized.astype(np.float64)),
+            rank=rank,
+            transform=_compose(setup.transform, transform),
+            knots=self.knots,
+        )
 
-        def evaluate(values: ArrayLike) -> Array:
-            return basis(values) @ transform
 
-        target = jnp.diag(penalized.astype(self.penalty.dtype))
-        return Smooth(evaluate, target, self.rank, self.knots)
+def _smooth_from_setup(
+    root: Callable[[ArrayLike], Array],
+    penalty: np.ndarray,
+    *,
+    rank: int | None = None,
+    transform: np.ndarray | None = None,
+    knots: Array | None = None,
+) -> Smooth:
+    """Build a smooth from float64 setup results.
+
+    ``rank`` defaults to the float64 rank of ``penalty``. The returned
+    ``penalty`` and basis transform use JAX's default precision.
+    """
+    penalty = np.asarray(penalty, dtype=np.float64)
+    setup_rank = _setup_rank(penalty) if rank is None else int(rank)
+    stored = jnp.asarray(penalty)
+    if transform is None:
+        basis = root
+    else:
+        transform_array = jnp.asarray(transform)
+
+        def basis(values: ArrayLike) -> Array:
+            return root(values) @ transform_array
+
+    smooth = Smooth(basis, stored, setup_rank, knots)
+    object.__setattr__(smooth, "_setup", _Setup(penalty, setup_rank, root, transform))
+    return smooth
 
 
-def _constraint_reparameterization(constraint: Array) -> Array:
+def _rank_above(eigenvalues: np.ndarray, rtol: float) -> int:
+    """Count eigenvalues above ``rtol`` times the largest one."""
+    if not eigenvalues.size:
+        return 0
+    largest = float(np.max(eigenvalues))
+    if largest <= 0.0:
+        return 0
+    return int(np.sum(eigenvalues > rtol * largest))
+
+
+def _setup_rank(penalty: np.ndarray) -> int:
+    """Return the float64 rank of a penalty.
+
+    Counts eigenvalues above ``eps64**0.8`` times the largest one. Every
+    constructor and transformation uses this rule.
+    """
+    penalty = np.asarray(penalty, dtype=np.float64)
+    return _rank_above(np.linalg.eigvalsh(_symmetric(penalty)), _SETUP_RTOL)
+
+
+def _symmetric(matrix: np.ndarray) -> np.ndarray:
+    return (matrix + matrix.T) / 2.0
+
+
+def _compose(first: np.ndarray | None, second: np.ndarray) -> np.ndarray:
+    return second if first is None else first @ second
+
+
+def _canonical_signs(vectors: np.ndarray) -> np.ndarray:
+    """Flip columns so each one's largest-magnitude entry is positive."""
+    pivots = np.argmax(np.abs(vectors), axis=0)
+    pivot_values = vectors[pivots, np.arange(vectors.shape[1])]
+    return vectors * np.where(pivot_values < 0.0, -1.0, 1.0)
+
+
+def _constraint_reparameterization(constraint: np.ndarray) -> np.ndarray:
     if constraint.ndim != 2:
         raise ValueError("A constraint matrix must be two-dimensional.")
     n_constraints, n_coefficients = constraint.shape
     if not 0 < n_constraints < n_coefficients:
         raise ValueError("A constraint must leave at least one free coefficient.")
-    if np.linalg.matrix_rank(np.asarray(constraint)) != n_constraints:
+    if np.linalg.matrix_rank(constraint) != n_constraints:
         raise ValueError("Constraint rows must be linearly independent.")
 
-    _, eigenvectors = jnp.linalg.eigh(constraint.T @ constraint)
-    signs = jnp.sign(eigenvectors[0])
-    eigenvectors = eigenvectors * jnp.where(signs == 0, 1.0, signs)
-    complement = eigenvectors[:, :-n_constraints].T
-    stacked = jnp.concatenate((constraint, complement), axis=0)
-    inverse = jnp.linalg.inv(stacked)
-    return inverse[:, n_constraints:]
+    _, eigenvectors = np.linalg.eigh(constraint.T @ constraint)
+    signs = np.sign(eigenvectors[0])
+    eigenvectors = eigenvectors * np.where(signs == 0, 1.0, signs)
+    # The complement's orthonormal columns span the constraint's null space, so
+    # they are the last columns of the inverse of ``[constraint; complement.T]``.
+    return eigenvectors[:, :-n_constraints]
